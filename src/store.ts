@@ -38,8 +38,8 @@ const initialData: Subject[] = [
         name: 'Chương 1 — Phân thức đại số',
         description: 'Giới thiệu phân thức đại số và các phép tính cơ bản',
         lessons: [
-          { id: 'l1', name: 'Bài 1 — Khái niệm phân thức', duration: '20 phút', status: 'published', blocks: sampleBlocks },
-          { id: 'l2', name: 'Bài 2 — Tính chất cơ bản của phân thức', duration: '18 phút', status: 'draft', blocks: [ { id: 'l2b1', type: 'heading', text: 'Bài 2 — Tính chất cơ bản' } ] },
+          { id: 'l1', name: 'Bài 1 — Khái niệm phân thức', description: 'Giới thiệu khái niệm phân thức đại số và các tính chất cơ bản.', content: '', duration: '20 phút', status: 'published', blocks: sampleBlocks },
+          { id: 'l2', name: 'Bài 2 — Tính chất cơ bản của phân thức', description: 'Tính chất cơ bản của phân thức đại số và quy tắc rút gọn.', content: '', duration: '18 phút', status: 'draft', blocks: [ { id: 'l2b1', type: 'heading', text: 'Bài 2 — Tính chất cơ bản' } ] },
         ],
       },
       {
@@ -47,7 +47,7 @@ const initialData: Subject[] = [
         name: 'Chương 2 — Hàm số và đồ thị',
         description: 'Khái niệm hàm số và đồ thị hàm số bậc nhất',
         lessons: [
-          { id: 'l3', name: 'Bài 1 — Khái niệm hàm số', duration: '22 phút', status: 'published', blocks: [ { id: 'l3b1', type: 'heading', text: 'Khái niệm hàm số' } ] },
+          { id: 'l3', name: 'Bài 1 — Khái niệm hàm số', description: 'Giới thiệu khái niệm hàm số và đồ thị.', content: '', duration: '22 phút', status: 'published', blocks: [ { id: 'l3b1', type: 'heading', text: 'Khái niệm hàm số' } ] },
         ],
       },
     ],
@@ -63,7 +63,7 @@ const initialData: Subject[] = [
         name: 'Chương 1 — Văn học hiện đại',
         description: 'Các tác phẩm văn học hiện đại Việt Nam',
         lessons: [
-          { id: 'l4', name: 'Bài 1 — Vẻ đẹp của một bài ca dao', duration: '25 phút', status: 'published', blocks: [ { id: 'l4b1', type: 'heading', text: 'Vẻ đẹp của một bài ca dao' } ] },
+          { id: 'l4', name: 'Bài 1 — Vẻ đẹp của một bài ca dao', description: 'Phân tích vẻ đẹp của một bài ca dao Việt Nam.', content: '', duration: '25 phút', status: 'published', blocks: [ { id: 'l4b1', type: 'heading', text: 'Vẻ đẹp của một bài ca dao' } ] },
         ],
       },
     ],
@@ -79,7 +79,7 @@ const initialData: Subject[] = [
         name: 'Unit 1 — My Hobbies',
         description: 'Giới thiệu về sở thích cá nhân',
         lessons: [
-          { id: 'l5', name: 'Lesson 1 — Getting Started', duration: '15 phút', status: 'published', blocks: [ { id: 'l5b1', type: 'heading', text: 'Getting Started' } ] },
+          { id: 'l5', name: 'Lesson 1 — Getting Started', description: 'Giới thiệu chủ đề sở thích cá nhân bằng tiếng Anh.', content: '', duration: '15 phút', status: 'published', blocks: [ { id: 'l5b1', type: 'heading', text: 'Getting Started' } ] },
         ],
       },
     ],

@@ -135,7 +135,7 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
         } : s));
         toast('Đã cập nhật bài giảng');
       } else {
-        const newLesson: Lesson = { id: genId('l'), name: formName.trim(), duration: formDuration.trim() || '20 phút', status: formStatus, blocks: [createBlock('heading')] };
+        const newLesson: Lesson = { id: genId('l'), name: formName.trim(), description: '', content: '', duration: formDuration.trim() || '20 phút', status: formStatus, blocks: [createBlock('heading')] };
         updateSubjects((prev) => prev.map((s) => s.id === sid ? {
           ...s,
           chapters: s.chapters.map((c) => c.id === cid ? { ...c, lessons: [...c.lessons, newLesson] } : c),

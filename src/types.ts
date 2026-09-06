@@ -37,6 +37,8 @@ export type LessonStatus = 'draft' | 'published';
 export interface Lesson {
   id: string;
   name: string;
+  description: string;
+  content: string;
   duration: string;
   status: LessonStatus;
   blocks: Block[];
@@ -63,6 +65,7 @@ export type Route =
   | { name: 'overview' }
   | { name: 'subjects' }
   | { name: 'lesson-editor'; subjectId: string; chapterId: string; lessonId: string }
+  | { name: 'lesson-edit'; subjectId: string; chapterId: string; lessonId: string }
   | { name: 'lessons' }
   | { name: 'quiz' }
   | { name: 'templates' }

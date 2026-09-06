@@ -21,6 +21,7 @@ import type { Route } from './types';
 import { OverviewPage } from './pages/OverviewPage';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { LessonEditorPage } from './pages/LessonEditorPage';
+import { LessonEditPage } from './pages/LessonEditPage';
 import { LessonsPage } from './pages/LessonsPage';
 import { QuizPage } from './pages/QuizPage';
 import { TemplatesPage } from './pages/TemplatesPage';
@@ -50,6 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   overview: 'Tổng quan',
   subjects: 'Môn học',
   'lesson-editor': 'Soạn bài giảng',
+  'lesson-edit': 'Chỉnh sửa bài giảng',
   lessons: 'Bài giảng',
   quiz: 'Quiz',
   templates: 'Template thuyết trình',
@@ -67,7 +69,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const pageTitle = PAGE_TITLES[route.name] || 'Tổng quan';
-  const activeNavLabel = route.name === 'lesson-editor' ? 'Môn học' : pageTitle;
+  const activeNavLabel = route.name === 'lesson-editor' ? 'Môn học' : route.name === 'lesson-edit' ? 'Bài giảng' : pageTitle;
 
   const navigate = (r: Route) => {
     setRoute(r);
@@ -89,7 +91,9 @@ function App() {
       case 'lesson-editor':
         return <LessonEditorPage route={route} onBack={() => navigate({ name: 'subjects' })} />;
       case 'lessons':
-        return <LessonsPage onEditLesson={(sid, cid, lid) => navigate({ name: 'lesson-editor', subjectId: sid, chapterId: cid, lessonId: lid })} />;
+        return <LessonsPage onEditLesson={(sid, cid, lid) => navigate({ name: 'lesson-edit', subjectId: sid, chapterId: cid, lessonId: lid })} />;
+      case 'lesson-edit':
+        return <LessonEditPage route={route} onBack={() => navigate({ name: 'lessons' })} />;
       case 'quiz':
         return <QuizPage />;
       case 'templates':

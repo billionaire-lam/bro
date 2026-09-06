@@ -1,7 +1,7 @@
-import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { Edit2, FileEdit, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Lesson } from '../types';
-import { findChapter, findSubject, genId, useStore } from '../store';
+import { genId, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select, StatusBadge } from '../ui/PageComponents';
@@ -23,9 +23,11 @@ export function LessonsPage({ onEditLesson }: Props) {
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [chapterFilter, setChapterFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<FlatLesson | null>(null);
   const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [formDuration, setFormDuration] = useState('20 phút');
   const [formStatus, setFormStatus] = useState<'draft' | 'published'>('draft');
   const [formSubject, setFormSubject] = useState('');
@@ -53,13 +55,15 @@ export function LessonsPage({ onEditLesson }: Props) {
       if (search && !l.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (subjectFilter && l.subjectId !== subjectFilter) return false;
       if (chapterFilter && l.chapterId !== chapterFilter) return false;
+      if (statusFilter && l.status !== statusFilter) return false;
       return true;
     });
-  }, [flatLessons, search, subjectFilter, chapterFilter]);
+  }, [flatLessons, search, subjectFilter, chapterFilter, statusFilter]);
 
   const openAdd = () => {
     setEditing(null);
     setFormName('');
+    setFormDescription('');
     setFormDuration('20 phút');
     setFormStatus('draft');
     setFormSubject(data[0]?.id || '');
@@ -70,6 +74,7 @@ export function LessonsPage({ onEditLesson }: Props) {
   const openEdit = (lesson: FlatLesson) => {
     setEditing(lesson);
     setFormName(lesson.name);
+    setFormDescription(lesson.description || '');
     setFormDuration(lesson.duration);
     setFormStatus(lesson.status);
     setFormSubject(lesson.subjectId);
@@ -88,7 +93,7 @@ export function LessonsPage({ onEditLesson }: Props) {
           ...s,
           chapters: s.chapters.map((c) => c.id === formChapter ? {
             ...c,
-            lessons: c.lessons.map((l) => l.id === editing.id ? { ...l, name: formName.trim(), duration: formDuration.trim(), status: formStatus } : l),
+            lessons: c.lessons.map((l) => l.id === editing.id ? { ...l, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus } : l),
           } : c),
         } : s));
       } else {
@@ -97,7 +102,7 @@ export function LessonsPage({ onEditLesson }: Props) {
             return { ...s, chapters: s.chapters.map((c) => c.id === editing.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== editing.id) } : c) };
           }
           if (s.id === formSubject) {
-            const moved = { ...editing, name: formName.trim(), duration: formDuration.trim(), status: formStatus };
+            const moved = { ...editing, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus };
             return { ...s, chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, moved] } : c) };
           }
           return s;
@@ -105,7 +110,7 @@ export function LessonsPage({ onEditLesson }: Props) {
       }
       toast('Đã cập nhật bài giảng');
     } else {
-      const newLesson: Lesson = { id: genId('l'), name: formName.trim(), duration: formDuration.trim(), status: formStatus, blocks: [] };
+      const newLesson: Lesson = { id: genId('l'), name: formName.trim(), description: formDescription.trim(), content: '', duration: formDuration.trim(), status: formStatus, blocks: [] };
       updateSubjects((prev) => prev.map((s) => s.id === formSubject ? {
         ...s,
         chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, newLesson] } : c),
@@ -116,7 +121,7 @@ export function LessonsPage({ onEditLesson }: Props) {
   };
 
   const handleDelete = (lesson: FlatLesson) => {
-    if (!confirm('Xóa bài giảng này?')) return;
+    if (!confirm('Bạn có chắc muốn xóa bài giảng này?')) return;
     updateSubjects((prev) => prev.map((s) => s.id === lesson.subjectId ? {
       ...s,
       chapters: s.chapters.map((c) => c.id === lesson.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== lesson.id) } : c),
@@ -145,11 +150,12 @@ export function LessonsPage({ onEditLesson }: Props) {
         <SearchInput value={search} onChange={setSearch} placeholder="Tìm bài giảng..." />
         <Select value={subjectFilter} onChange={(v) => { setSubjectFilter(v); setChapterFilter(''); }} options={data.map((s) => ({ value: s.id, label: s.name }))} allLabel="Tất cả môn học" />
         <Select value={chapterFilter} onChange={setChapterFilter} options={(data.find((s) => s.id === subjectFilter)?.chapters || []).map((c) => ({ value: c.id, label: c.name }))} allLabel="Tất cả chương" />
+        <Select value={statusFilter} onChange={setStatusFilter} options={[{ value: 'draft', label: 'Nháp' }, { value: 'published', label: 'Đã xuất bản' }]} allLabel="Tất cả trạng thái" />
       </FilterBar>
       {filtered.length === 0 ? (
         <EmptyState message="Không tìm thấy bài giảng nào." />
       ) : (
-        <DataTable headers={['Tên bài giảng', 'Môn học', 'Chương', 'Thời lượng', 'Trạng thái', '']}>
+        <DataTable headers={['Tên bài', 'Môn học', 'Chương', 'Thời lượng', 'Trạng thái', '']}>
           {filtered.map((lesson) => (
             <tr key={lesson.id}>
               <td><strong>{lesson.name}</strong></td>
@@ -159,8 +165,8 @@ export function LessonsPage({ onEditLesson }: Props) {
               <td><button className="status-clickable" onClick={() => toggleStatus(lesson)}><StatusBadge status={lesson.status} /></button></td>
               <td>
                 <div className="row-actions">
-                  <button className="row-action-btn" onClick={() => onEditLesson(lesson.subjectId, lesson.chapterId, lesson.id)}><Edit2 size={14} /> Editor</button>
-                  <button className="row-action-btn" onClick={() => openEdit(lesson)}><Plus size={14} /> Sửa</button>
+                  <button className="row-action-btn" onClick={() => onEditLesson(lesson.subjectId, lesson.chapterId, lesson.id)}><FileEdit size={14} /> Chỉnh sửa nội dung</button>
+                  <button className="row-action-btn" onClick={() => openEdit(lesson)}><Edit2 size={14} /> Sửa</button>
                   <button className="row-action-btn danger" onClick={() => handleDelete(lesson)}><Trash2 size={14} /></button>
                 </div>
               </td>
@@ -189,6 +195,10 @@ export function LessonsPage({ onEditLesson }: Props) {
           <select className="form-input" value={formChapter} onChange={(e) => setFormChapter(e.target.value)}>
             {chaptersForSubject.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Mô tả</label>
+          <textarea className="form-textarea" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Mô tả ngắn về bài giảng..." rows={3} />
         </div>
         <div className="form-group">
           <label className="form-label">Thời lượng</label>
