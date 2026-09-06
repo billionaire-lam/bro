@@ -1,7 +1,7 @@
-import { CheckCircle2, Edit2, FileEdit, LogIn, Plus, Trash2, Upload } from 'lucide-react';
+import { CheckCircle2, FileEdit, LogIn, Plus, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import type { ActivityLogEntry } from '../types';
-import { mockActivityLog } from '../mockData';
+import { useStore } from '../store';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select } from '../ui/PageComponents';
 
 const TYPE_META: Record<ActivityLogEntry['type'], { label: string; color: string; icon: typeof CheckCircle2 }> = {
@@ -13,14 +13,25 @@ const TYPE_META: Record<ActivityLogEntry['type'], { label: string; color: string
 };
 
 export function ActivityLogPage() {
-  const [entries] = useState<ActivityLogEntry[]>(mockActivityLog);
+  const { activityLog } = useStore();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [periodFilter, setPeriodFilter] = useState('');
 
-  const filtered = entries.filter((e) => {
+  const filtered = activityLog.filter((e) => {
     if (search && !e.actor.toLowerCase().includes(search.toLowerCase()) && !e.action.toLowerCase().includes(search.toLowerCase()) && !e.target.toLowerCase().includes(search.toLowerCase())) return false;
     if (typeFilter && e.type !== typeFilter) return false;
+    if (periodFilter === 'today' && !e.time.startsWith(new Date().toLocaleDateString('vi-VN'))) return false;
+    if (periodFilter === 'week') {
+      const entryDate = new Date(e.time.split(' ')[0].split('/').reverse().join('-'));
+      const daysAgo = (Date.now() - entryDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysAgo > 7) return false;
+    }
+    if (periodFilter === 'month') {
+      const entryDate = new Date(e.time.split(' ')[0].split('/').reverse().join('-'));
+      const daysAgo = (Date.now() - entryDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysAgo > 30) return false;
+    }
     return true;
   });
 

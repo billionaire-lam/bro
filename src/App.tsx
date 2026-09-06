@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { Route } from './types';
+import { useStore } from './store';
 import { OverviewPage } from './pages/OverviewPage';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { LessonEditorPage } from './pages/LessonEditorPage';
@@ -67,6 +68,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [route, setRoute] = useState<Route>({ name: 'overview' });
   const [searchQuery, setSearchQuery] = useState('');
+  const { notifications } = useStore();
+  const notifCount = notifications.filter((n) => n.status === 'published').length;
 
   const pageTitle = PAGE_TITLES[route.name] || 'Tổng quan';
   const activeNavLabel = route.name === 'lesson-editor' ? 'Môn học' : route.name === 'lesson-edit' ? 'Bài giảng' : pageTitle;
@@ -141,12 +144,12 @@ function App() {
             );
           })}
         </nav>
-        <div className="profile-card">
+        <button className="profile-card" onClick={() => navigate({ name: 'settings' })}>
           <div className="profile-avatar">NM</div>
           <div><strong>Nguyễn Minh</strong><span>Quản trị viên</span></div>
           <ChevronDown size={15} />
-        </div>
-        <button className="dark-mode" aria-label="Chế độ tối"><Moon size={18} /></button>
+        </button>
+        <button className="dark-mode" aria-label="Cài đặt giao diện" onClick={() => navigate({ name: 'settings' })}><Moon size={18} /></button>
       </aside>
 
       <main className="main-content">
@@ -155,7 +158,7 @@ function App() {
           <h1>{pageTitle}</h1>
           <div className="topbar-actions">
             <label className="search-box"><Search size={17} /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Tìm kiếm..." aria-label="Tìm kiếm" /></label>
-            <button className="notification-button" aria-label="Thông báo" onClick={() => navigate({ name: 'notifications' })}><Bell size={20} /><span>8</span></button>
+            <button className="notification-button" aria-label="Thông báo" onClick={() => navigate({ name: 'notifications' })}><Bell size={20} />{notifCount > 0 && <span>{notifCount}</span>}</button>
             <div className="top-avatar">NM</div>
           </div>
         </header>

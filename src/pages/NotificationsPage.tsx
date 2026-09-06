@@ -1,16 +1,14 @@
-import { Edit2, Plus, Trash2, Send } from 'lucide-react';
+import { Edit2, Plus, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Notification } from '../types';
-import { mockNotifications } from '../mockData';
+import { genId, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select, StatusBadge } from '../ui/PageComponents';
 import { toast } from '../ui/Toast';
 
-let notifIdCounter = 100;
-
 export function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const { notifications, updateNotifications } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -38,28 +36,28 @@ export function NotificationsPage() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = (saveStatus: 'draft' | 'published') => {
     if (!formTitle.trim()) { toast('Vui lòng nhập tiêu đề', 'error'); return; }
     const today = new Date().toLocaleDateString('vi-VN');
     if (editingId) {
-      setNotifications((prev) => prev.map((n) => n.id === editingId ? { ...n, title: formTitle.trim(), content: formContent.trim(), audience: formAudience, status: formStatus } : n));
-      toast('Đã cập nhật thông báo');
+      updateNotifications((prev) => prev.map((n) => n.id === editingId ? { ...n, title: formTitle.trim(), content: formContent.trim(), audience: formAudience, status: saveStatus, date: saveStatus === 'published' ? today : n.date } : n));
+      toast(saveStatus === 'published' ? 'Đã gửi thông báo' : 'Đã lưu nháp');
     } else {
-      const newN: Notification = { id: `n${++notifIdCounter}`, title: formTitle.trim(), content: formContent.trim(), audience: formAudience, date: today, status: formStatus };
-      setNotifications((prev) => [newN, ...prev]);
-      toast('Đã tạo thông báo mới');
+      const newN: Notification = { id: genId('n'), title: formTitle.trim(), content: formContent.trim(), audience: formAudience, date: today, status: saveStatus };
+      updateNotifications((prev) => [newN, ...prev]);
+      toast(saveStatus === 'published' ? 'Đã gửi thông báo' : 'Đã lưu nháp');
     }
     setModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa thông báo này?')) return;
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    updateNotifications((prev) => prev.filter((n) => n.id !== id));
     toast('Đã xóa thông báo', 'info');
   };
 
   const toggleStatus = (id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, status: n.status === 'draft' ? 'published' : 'draft' } : n));
+    updateNotifications((prev) => prev.map((n) => n.id === id ? { ...n, status: n.status === 'draft' ? 'published' : 'draft' } : n));
     toast('Đã thay đổi trạng thái');
   };
 
@@ -97,7 +95,7 @@ export function NotificationsPage() {
         title={editingId ? 'Sửa thông báo' : 'Tạo thông báo'}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Hủy</Button><Button onClick={handleSave}>Lưu</Button></>}
+        footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Hủy</Button><Button variant="outline" onClick={() => handleSave('draft')}>Lưu nháp</Button><Button onClick={() => handleSave('published')}><Send size={14} /> Gửi</Button></>}
       >
         <div className="form-group">
           <label className="form-label">Tiêu đề</label>
@@ -116,7 +114,7 @@ export function NotificationsPage() {
           </select>
         </div>
         <div className="form-group">
-          <label className="form-label">Trạng thái</label>
+          <label className="form-label">Trạng thái hiện tại</label>
           <div className="status-toggle">
             <button className={formStatus === 'draft' ? 'active' : ''} onClick={() => setFormStatus('draft')}>Nháp</button>
             <button className={formStatus === 'published' ? 'active' : ''} onClick={() => setFormStatus('published')}>Đã gửi</button>

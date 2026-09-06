@@ -1,17 +1,19 @@
 import { Eye, Flame } from 'lucide-react';
 import { useState } from 'react';
 import type { Student } from '../types';
-import { mockStudents, SUBJECT_NAMES } from '../mockData';
+import { useStore } from '../store';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select } from '../ui/PageComponents';
 
 export function StudentsPage() {
-  const [students] = useState<Student[]>(mockStudents);
+  const { students } = useStore();
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [detailStudent, setDetailStudent] = useState<Student | null>(null);
+
+  const subjectNames = Array.from(new Set(students.map((s) => s.subject)));
 
   const filtered = students.filter((s) => {
     if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.email.toLowerCase().includes(search.toLowerCase())) return false;
@@ -24,7 +26,7 @@ export function StudentsPage() {
     <div className="page-container">
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Tìm theo tên hoặc email..." />
-        <Select value={subjectFilter} onChange={setSubjectFilter} options={SUBJECT_NAMES.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
+        <Select value={subjectFilter} onChange={setSubjectFilter} options={subjectNames.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
         <Select value={statusFilter} onChange={setStatusFilter} options={[{ value: 'active', label: 'Đang hoạt động' }, { value: 'inactive', label: 'Không hoạt động' }]} allLabel="Tất cả trạng thái" />
       </FilterBar>
       {filtered.length === 0 ? <EmptyState message="Không tìm thấy học sinh nào." /> : (

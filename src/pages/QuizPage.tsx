@@ -1,25 +1,25 @@
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Quiz } from '../types';
-import { mockQuizzes, SUBJECT_NAMES } from '../mockData';
+import { genId, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select, StatusBadge } from '../ui/PageComponents';
 import { toast } from '../ui/Toast';
 
-let quizIdCounter = 100;
-
 export function QuizPage() {
-  const [quizzes, setQuizzes] = useState<Quiz[]>(mockQuizzes);
+  const { quizzes, updateQuizzes } = useStore();
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
-  const [formSubject, setFormSubject] = useState(SUBJECT_NAMES[0]);
+  const [formSubject, setFormSubject] = useState('');
   const [formCount, setFormCount] = useState('10');
   const [formStatus, setFormStatus] = useState<'draft' | 'published'>('draft');
+
+  const subjectNames = Array.from(new Set(quizzes.map((q) => q.subjectId)));
 
   const filtered = quizzes.filter((q) => {
     if (search && !q.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -31,7 +31,7 @@ export function QuizPage() {
   const openAdd = () => {
     setEditingId(null);
     setFormName('');
-    setFormSubject(SUBJECT_NAMES[0]);
+    setFormSubject(subjectNames[0] || '');
     setFormCount('10');
     setFormStatus('draft');
     setModalOpen(true);
@@ -52,11 +52,11 @@ export function QuizPage() {
       return;
     }
     if (editingId) {
-      setQuizzes((prev) => prev.map((q) => q.id === editingId ? { ...q, name: formName.trim(), subjectId: formSubject, questionCount: Number(formCount) || 0, status: formStatus } : q));
+      updateQuizzes((prev) => prev.map((q) => q.id === editingId ? { ...q, name: formName.trim(), subjectId: formSubject, questionCount: Number(formCount) || 0, status: formStatus } : q));
       toast('Đã cập nhật quiz');
     } else {
-      const newQuiz: Quiz = { id: `q${++quizIdCounter}`, name: formName.trim(), subjectId: formSubject, questionCount: Number(formCount) || 0, status: formStatus };
-      setQuizzes((prev) => [...prev, newQuiz]);
+      const newQuiz: Quiz = { id: genId('q'), name: formName.trim(), subjectId: formSubject, questionCount: Number(formCount) || 0, status: formStatus };
+      updateQuizzes((prev) => [...prev, newQuiz]);
       toast('Đã thêm quiz mới');
     }
     setModalOpen(false);
@@ -64,12 +64,12 @@ export function QuizPage() {
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa quiz này?')) return;
-    setQuizzes((prev) => prev.filter((q) => q.id !== id));
+    updateQuizzes((prev) => prev.filter((q) => q.id !== id));
     toast('Đã xóa quiz', 'info');
   };
 
   const toggleStatus = (id: string) => {
-    setQuizzes((prev) => prev.map((q) => q.id === id ? { ...q, status: q.status === 'draft' ? 'published' : 'draft' } : q));
+    updateQuizzes((prev) => prev.map((q) => q.id === id ? { ...q, status: q.status === 'draft' ? 'published' : 'draft' } : q));
   };
 
   return (
@@ -77,7 +77,7 @@ export function QuizPage() {
       <div className="page-toolbar"><AddButton onClick={openAdd}>Thêm Quiz</AddButton></div>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Tìm quiz..." />
-        <Select value={subjectFilter} onChange={setSubjectFilter} options={SUBJECT_NAMES.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
+        <Select value={subjectFilter} onChange={setSubjectFilter} options={subjectNames.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
         <Select value={statusFilter} onChange={setStatusFilter} options={[{ value: 'draft', label: 'Nháp' }, { value: 'published', label: 'Đã xuất bản' }]} allLabel="Tất cả trạng thái" />
       </FilterBar>
       {filtered.length === 0 ? <EmptyState message="Không tìm thấy quiz nào." /> : (
@@ -110,9 +110,7 @@ export function QuizPage() {
         </div>
         <div className="form-group">
           <label className="form-label">Môn học</label>
-          <select className="form-input" value={formSubject} onChange={(e) => setFormSubject(e.target.value)}>
-            {SUBJECT_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <input className="form-input" value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder="VD: Toán 8" />
         </div>
         <div className="form-group">
           <label className="form-label">Số câu hỏi</label>

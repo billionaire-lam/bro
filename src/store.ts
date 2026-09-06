@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Block, BlockType, Chapter, Lesson, Subject } from './types';
+import type { ActivityLogEntry, Block, BlockType, Chapter, Lesson, Notification, Quiz, Student, Subject, Template } from './types';
+import { mockActivityLog, mockNotifications, mockQuizzes, mockStudents, mockTemplates } from './mockData';
 
-const STORAGE_KEY = 'studyhub-content-v1';
+const SUBJECTS_KEY = 'studyhub-content-v1';
+const APP_KEY = 'studyhub-app-data-v1';
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   heading: 'Tiêu đề',
@@ -26,7 +28,7 @@ const sampleBlocks: Block[] = [
   { id: 'b5', type: 'summary', text: 'Nhớ: Mẫu thức luôn phải khác 0.' },
 ];
 
-const initialData: Subject[] = [
+const initialSubjects: Subject[] = [
   {
     id: 's1',
     name: 'Toán 8',
@@ -86,50 +88,99 @@ const initialData: Subject[] = [
   },
 ];
 
-let listeners: (() => void)[] = [];
-let memoryData: Subject[] | null = null;
-
-function loadData(): Subject[] {
-  if (memoryData) return memoryData;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      memoryData = JSON.parse(raw) as Subject[];
-      return memoryData;
-    }
-  } catch {
-    // ignore
-  }
-  memoryData = initialData;
-  return memoryData;
+interface AppData {
+  quizzes: Quiz[];
+  templates: Template[];
+  students: Student[];
+  notifications: Notification[];
+  activityLog: ActivityLogEntry[];
 }
 
-function saveData(data: Subject[]) {
-  memoryData = data;
+const initialAppData: AppData = {
+  quizzes: mockQuizzes,
+  templates: mockTemplates,
+  students: mockStudents,
+  notifications: mockNotifications,
+  activityLog: mockActivityLog,
+};
+
+let listeners: (() => void)[] = [];
+let memorySubjects: Subject[] | null = null;
+let memoryAppData: AppData | null = null;
+
+function loadSubjects(): Subject[] {
+  if (memorySubjects) return memorySubjects;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore
-  }
+    const raw = localStorage.getItem(SUBJECTS_KEY);
+    if (raw) {
+      memorySubjects = JSON.parse(raw) as Subject[];
+      return memorySubjects;
+    }
+  } catch { /* ignore */ }
+  memorySubjects = initialSubjects;
+  return memorySubjects;
+}
+
+function saveSubjects(data: Subject[]) {
+  memorySubjects = data;
+  try { localStorage.setItem(SUBJECTS_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+  listeners.forEach((l) => l());
+}
+
+function loadAppData(): AppData {
+  if (memoryAppData) return memoryAppData;
+  try {
+    const raw = localStorage.getItem(APP_KEY);
+    if (raw) {
+      memoryAppData = JSON.parse(raw) as AppData;
+      return memoryAppData;
+    }
+  } catch { /* ignore */ }
+  memoryAppData = initialAppData;
+  return memoryAppData;
+}
+
+function saveAppData(data: AppData) {
+  memoryAppData = data;
+  try { localStorage.setItem(APP_KEY, JSON.stringify(data)); } catch { /* ignore */ }
   listeners.forEach((l) => l());
 }
 
 export function useStore() {
-  const [data, setData] = useState<Subject[]>(loadData);
+  const [subjects, setSubjects] = useState<Subject[]>(loadSubjects);
+  const [appData, setAppData] = useState<AppData>(loadAppData);
 
   useEffect(() => {
-    const listener = () => setData(loadData());
-    listeners.push(listener);
-    return () => {
-      listeners = listeners.filter((l) => l !== listener);
+    const listener = () => {
+      setSubjects(loadSubjects());
+      setAppData(loadAppData());
     };
+    listeners.push(listener);
+    return () => { listeners = listeners.filter((l) => l !== listener); };
   }, []);
 
   const updateSubjects = useCallback((updater: (prev: Subject[]) => Subject[]) => {
-    saveData(updater(loadData()));
+    saveSubjects(updater(loadSubjects()));
   }, []);
 
-  return { data, updateSubjects };
+  const updateAppData = useCallback((updater: (prev: AppData) => AppData) => {
+    saveAppData(updater(loadAppData()));
+  }, []);
+
+  return {
+    data: subjects,
+    updateSubjects,
+    quizzes: appData.quizzes,
+    templates: appData.templates,
+    students: appData.students,
+    notifications: appData.notifications,
+    activityLog: appData.activityLog,
+    updateQuizzes: useCallback((fn: (prev: Quiz[]) => Quiz[]) => updateAppData((d) => ({ ...d, quizzes: fn(d.quizzes) })), [updateAppData]),
+    updateTemplates: useCallback((fn: (prev: Template[]) => Template[]) => updateAppData((d) => ({ ...d, templates: fn(d.templates) })), [updateAppData]),
+    updateStudents: useCallback((fn: (prev: Student[]) => Student[]) => updateAppData((d) => ({ ...d, students: fn(d.students) })), [updateAppData]),
+    updateNotifications: useCallback((fn: (prev: Notification[]) => Notification[]) => updateAppData((d) => ({ ...d, notifications: fn(d.notifications) })), [updateAppData]),
+    updateActivityLog: useCallback((fn: (prev: ActivityLogEntry[]) => ActivityLogEntry[]) => updateAppData((d) => ({ ...d, activityLog: fn(d.activityLog) })), [updateAppData]),
+  };
 }
 
 let idCounter = 0;
@@ -166,4 +217,8 @@ export function findLesson(
   lessonId: string,
 ): Lesson | undefined {
   return findChapter(data, subjectId, chapterId)?.lessons.find((l) => l.id === lessonId);
+}
+
+export function countAllLessons(data: Subject[]): number {
+  return data.reduce((sum, s) => sum + s.chapters.reduce((cs, c) => cs + c.lessons.length, 0), 0);
 }

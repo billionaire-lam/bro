@@ -1,20 +1,18 @@
 import { BookOpen, FileText, Edit2, Plus, Trash2, Download } from 'lucide-react';
 import { useState } from 'react';
 import type { Template } from '../types';
-import { mockTemplates, SUBJECT_NAMES } from '../mockData';
+import { genId, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { EmptyState, FilterBar, SearchInput, Select, StatusBadge } from '../ui/PageComponents';
 import { toast } from '../ui/Toast';
-
-let tplIdCounter = 100;
 
 const THUMB_ICONS: Record<string, string> = {
   books: '📚', math: '📐', nature: '🌿', science: '🔬', history: '🏛️', algebra: '➗',
 };
 
 export function TemplatesPage() {
-  const [templates, setTemplates] = useState<Template[]>(mockTemplates);
+  const { templates, updateTemplates } = useStore();
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -22,10 +20,12 @@ export function TemplatesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  const [formSubject, setFormSubject] = useState(SUBJECT_NAMES[0]);
+  const [formSubject, setFormSubject] = useState('');
   const [formThumb, setFormThumb] = useState('books');
   const [formFileName, setFormFileName] = useState('');
   const [formStatus, setFormStatus] = useState<'draft' | 'published'>('draft');
+
+  const subjectNames = Array.from(new Set(templates.map((t) => t.subjectId)));
 
   const filtered = templates.filter((t) => {
     if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -36,7 +36,7 @@ export function TemplatesPage() {
 
   const openAdd = () => {
     setEditingId(null);
-    setFormName(''); setFormDesc(''); setFormSubject(SUBJECT_NAMES[0]); setFormThumb('books'); setFormFileName(''); setFormStatus('draft');
+    setFormName(''); setFormDesc(''); setFormSubject(subjectNames[0] || ''); setFormThumb('books'); setFormFileName(''); setFormStatus('draft');
     setModalOpen(true);
   };
 
@@ -49,11 +49,11 @@ export function TemplatesPage() {
   const handleSave = () => {
     if (!formName.trim()) { toast('Vui lòng nhập tên template', 'error'); return; }
     if (editingId) {
-      setTemplates((prev) => prev.map((t) => t.id === editingId ? { ...t, name: formName.trim(), description: formDesc.trim(), subjectId: formSubject, thumbnail: formThumb, fileName: formFileName.trim() || 'template.pptx', status: formStatus } : t));
+      updateTemplates((prev) => prev.map((t) => t.id === editingId ? { ...t, name: formName.trim(), description: formDesc.trim(), subjectId: formSubject, thumbnail: formThumb, fileName: formFileName.trim() || 'template.pptx', status: formStatus } : t));
       toast('Đã cập nhật template');
     } else {
-      const newTpl: Template = { id: `t${++tplIdCounter}`, name: formName.trim(), description: formDesc.trim(), subjectId: formSubject, thumbnail: formThumb, fileName: formFileName.trim() || 'template.pptx', status: formStatus };
-      setTemplates((prev) => [...prev, newTpl]);
+      const newTpl: Template = { id: genId('t'), name: formName.trim(), description: formDesc.trim(), subjectId: formSubject, thumbnail: formThumb, fileName: formFileName.trim() || 'template.pptx', status: formStatus };
+      updateTemplates((prev) => [...prev, newTpl]);
       toast('Đã thêm template mới');
     }
     setModalOpen(false);
@@ -61,8 +61,12 @@ export function TemplatesPage() {
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa template này?')) return;
-    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    updateTemplates((prev) => prev.filter((t) => t.id !== id));
     toast('Đã xóa template', 'info');
+  };
+
+  const handleDownload = (t: Template) => {
+    toast(`Đang tải xuống ${t.fileName}`, 'info');
   };
 
   return (
@@ -70,7 +74,7 @@ export function TemplatesPage() {
       <div className="page-toolbar"><AddButton onClick={openAdd}>Thêm template</AddButton></div>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder="Tìm template..." />
-        <Select value={subjectFilter} onChange={setSubjectFilter} options={SUBJECT_NAMES.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
+        <Select value={subjectFilter} onChange={setSubjectFilter} options={subjectNames.map((s) => ({ value: s, label: s }))} allLabel="Tất cả môn học" />
         <Select value={statusFilter} onChange={setStatusFilter} options={[{ value: 'draft', label: 'Nháp' }, { value: 'published', label: 'Đã xuất bản' }]} allLabel="Tất cả trạng thái" />
       </FilterBar>
       {filtered.length === 0 ? <EmptyState message="Không tìm thấy template nào." /> : (
@@ -88,7 +92,7 @@ export function TemplatesPage() {
                 <div className="template-file"><FileText size={13} /> {t.fileName}</div>
                 <div className="template-actions">
                   <button className="row-action-btn" onClick={() => openEdit(t)}><Edit2 size={14} /> Sửa</button>
-                  <button className="row-action-btn"><Download size={14} /> Tải</button>
+                  <button className="row-action-btn" onClick={() => handleDownload(t)}><Download size={14} /> Tải</button>
                   <button className="row-action-btn danger" onClick={() => handleDelete(t.id)}><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -112,9 +116,7 @@ export function TemplatesPage() {
         </div>
         <div className="form-group">
           <label className="form-label">Môn học</label>
-          <select className="form-input" value={formSubject} onChange={(e) => setFormSubject(e.target.value)}>
-            {SUBJECT_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <input className="form-input" value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder="VD: Toán 8" />
         </div>
         <div className="form-group">
           <label className="form-label">Thumbnail</label>
