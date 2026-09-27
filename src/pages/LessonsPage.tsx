@@ -97,16 +97,26 @@ export function LessonsPage({ onEditLesson }: Props) {
           } : c),
         } : s));
       } else {
-        updateSubjects((prev) => prev.map((s) => {
-          if (s.id === editing.subjectId) {
-            return { ...s, chapters: s.chapters.map((c) => c.id === editing.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== editing.id) } : c) };
-          }
-          if (s.id === formSubject) {
-            const moved = { ...editing, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus };
-            return { ...s, chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, moved] } : c) };
-          }
-          return s;
-        }));
+        // Bug fix: the previous version used two independent `if` blocks
+        // inside one `.map()`, each returning immediately. When the lesson
+        // moved to a different chapter within the *same* subject, the first
+        // `if` (remove from old chapter) matched and returned before the
+        // second `if` (add to new chapter) ever ran for that subject — the
+        // lesson was deleted instead of moved. Doing the removal and the
+        // insertion as two sequential passes fixes this for every case
+        // (same subject/different chapter, and different subject alike)
+        // without special-casing which one it is.
+        updateSubjects((prev) => {
+          const withoutLesson = prev.map((s) => s.id === editing.subjectId ? {
+            ...s,
+            chapters: s.chapters.map((c) => c.id === editing.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== editing.id) } : c),
+          } : s);
+          const moved = { ...editing, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus };
+          return withoutLesson.map((s) => s.id === formSubject ? {
+            ...s,
+            chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, moved] } : c),
+          } : s);
+        });
       }
       toast('Đã cập nhật bài giảng');
     } else {

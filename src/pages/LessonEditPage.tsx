@@ -15,9 +15,6 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
   const lesson = findLesson(data, route.subjectId, route.chapterId, route.lessonId);
 
   const [previewMode, setPreviewMode] = useState(false);
-  const [name, setName] = useState(lesson?.name || '');
-  const [description, setDescription] = useState(lesson?.description || '');
-  const [content, setContent] = useState(lesson?.content || '');
 
   if (!lesson) {
     return (
@@ -28,6 +25,14 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
     );
   }
 
+  // Writes straight through to the shared store on every change (same
+  // pattern the block editor already uses) instead of buffering in local
+  // component state until a "Lưu" click. Buffering in local state meant
+  // navigating away (sidebar, browser back, etc.) before clicking Lưu
+  // silently discarded whatever had been typed — a real data-loss bug, not
+  // just a UX nicety. The Lưu button is kept exactly as-is (same label,
+  // same position) so the UI is unchanged; it now just confirms the save
+  // that already happened.
   const updateLesson = (updates: Partial<typeof lesson>) => {
     updateSubjects((prev) => prev.map((s) => {
       if (s.id !== route.subjectId) return s;
@@ -42,7 +47,6 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
   };
 
   const handleSave = () => {
-    updateLesson({ name: name.trim(), description: description.trim(), content });
     toast('Đã lưu bài giảng');
   };
 
@@ -59,12 +63,12 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
         <article className="preview-article">
           <div className="preview-article-head">
             <span className="preview-status">{lesson.status === 'draft' ? 'Bản nháp' : 'Đã xuất bản'}</span>
-            <h1>{name}</h1>
-            {description && <p className="pv-paragraph" style={{ color: '#8993a4', marginBottom: '8px' }}>{description}</p>}
+            <h1>{lesson.name}</h1>
+            {lesson.description && <p className="pv-paragraph" style={{ color: '#8993a4', marginBottom: '8px' }}>{lesson.description}</p>}
           </div>
           <div className="preview-blocks">
-            {content.trim() ? (
-              <p className="pv-paragraph" style={{ whiteSpace: 'pre-wrap' }}>{content}</p>
+            {lesson.content.trim() ? (
+              <p className="pv-paragraph" style={{ whiteSpace: 'pre-wrap' }}>{lesson.content}</p>
             ) : (
               <p className="pv-empty-text">Bài giảng chưa có nội dung.</p>
             )}
@@ -93,15 +97,15 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
       <div className="lesson-edit-body">
         <div className="form-group">
           <label className="form-label">Tên bài</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nhập tên bài giảng..." />
+          <input className="form-input" value={lesson.name} onChange={(e) => updateLesson({ name: e.target.value })} placeholder="Nhập tên bài giảng..." />
         </div>
         <div className="form-group">
           <label className="form-label">Mô tả</label>
-          <textarea className="form-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả ngắn về bài giảng..." rows={2} />
+          <textarea className="form-textarea" value={lesson.description} onChange={(e) => updateLesson({ description: e.target.value })} placeholder="Mô tả ngắn về bài giảng..." rows={2} />
         </div>
         <div className="form-group">
           <label className="form-label">Nội dung</label>
-          <textarea className="lesson-edit-content" value={content} onChange={(e) => setContent(e.target.value)} placeholder="Nhập nội dung bài giảng..." rows={16} />
+          <textarea className="lesson-edit-content" value={lesson.content} onChange={(e) => updateLesson({ content: e.target.value })} placeholder="Nhập nội dung bài giảng..." rows={16} />
         </div>
       </div>
     </div>
