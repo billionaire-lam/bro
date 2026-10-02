@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ActivityLogEntry, Block, BlockType, Chapter, Lesson, Notification, Quiz, Student, Subject, Template } from './types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ActivityLogEntry, Block, BlockType, Chapter, Lesson, Notification, Quiz, Student, Subject, SubjectColor, Template } from './types';
 import { mockActivityLog, mockNotifications, mockQuizzes, mockStudents, mockTemplates } from './mockData';
-
-const SUBJECTS_KEY = 'studyhub-content-v1';
-const APP_KEY = 'studyhub-app-data-v1';
+import { supabase } from './supabaseClient';
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   heading: 'Tiêu đề',
@@ -15,78 +13,11 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   image: 'Hình ảnh',
   video: 'Video',
   slide: 'Slide',
-  quiz: 'Quiz',
+  question: 'Câu hỏi',
   exercise: 'Bài tập',
+  quiz: 'Quiz',
   summary: 'Tóm tắt',
 };
-
-const sampleBlocks: Block[] = [
-  { id: 'b1', type: 'heading', text: 'Bài 1 — Khái niệm phân thức' },
-  { id: 'b2', type: 'explanation', text: 'Phân thức đại số là biểu thức có dạng A/B, trong đó A, B là các đa thức và B khác 0.' },
-  { id: 'b3', type: 'example', text: 'Ví dụ: x/y, (x+1)/(x-2), 5/(x^2+1) là các phân thức đại số.' },
-  { id: 'b4', type: 'formula', text: 'A/B = A·C / B·C (với C ≠ 0)' },
-  { id: 'b5', type: 'summary', text: 'Nhớ: Mẫu thức luôn phải khác 0.' },
-];
-
-const initialSubjects: Subject[] = [
-  {
-    id: 's1',
-    name: 'Toán 8',
-    description: 'Toán học lớp 8 — Đại số và Hình học cơ bản',
-    color: 'violet',
-    chapters: [
-      {
-        id: 'c1',
-        name: 'Chương 1 — Phân thức đại số',
-        description: 'Giới thiệu phân thức đại số và các phép tính cơ bản',
-        lessons: [
-          { id: 'l1', name: 'Bài 1 — Khái niệm phân thức', description: 'Giới thiệu khái niệm phân thức đại số và các tính chất cơ bản.', content: '', duration: '20 phút', status: 'published', blocks: sampleBlocks },
-          { id: 'l2', name: 'Bài 2 — Tính chất cơ bản của phân thức', description: 'Tính chất cơ bản của phân thức đại số và quy tắc rút gọn.', content: '', duration: '18 phút', status: 'draft', blocks: [ { id: 'l2b1', type: 'heading', text: 'Bài 2 — Tính chất cơ bản' } ] },
-        ],
-      },
-      {
-        id: 'c2',
-        name: 'Chương 2 — Hàm số và đồ thị',
-        description: 'Khái niệm hàm số và đồ thị hàm số bậc nhất',
-        lessons: [
-          { id: 'l3', name: 'Bài 1 — Khái niệm hàm số', description: 'Giới thiệu khái niệm hàm số và đồ thị.', content: '', duration: '22 phút', status: 'published', blocks: [ { id: 'l3b1', type: 'heading', text: 'Khái niệm hàm số' } ] },
-        ],
-      },
-    ],
-  },
-  {
-    id: 's2',
-    name: 'Ngữ văn 8',
-    description: 'Ngữ văn lớp 8 — Văn học và Tiếng Việt',
-    color: 'green',
-    chapters: [
-      {
-        id: 'c3',
-        name: 'Chương 1 — Văn học hiện đại',
-        description: 'Các tác phẩm văn học hiện đại Việt Nam',
-        lessons: [
-          { id: 'l4', name: 'Bài 1 — Vẻ đẹp của một bài ca dao', description: 'Phân tích vẻ đẹp của một bài ca dao Việt Nam.', content: '', duration: '25 phút', status: 'published', blocks: [ { id: 'l4b1', type: 'heading', text: 'Vẻ đẹp của một bài ca dao' } ] },
-        ],
-      },
-    ],
-  },
-  {
-    id: 's3',
-    name: 'Tiếng Anh 8',
-    description: 'Tiếng Anh lớp 8 — Kỹ năng ngôn ngữ',
-    color: 'blue',
-    chapters: [
-      {
-        id: 'c4',
-        name: 'Unit 1 — My Hobbies',
-        description: 'Giới thiệu về sở thích cá nhân',
-        lessons: [
-          { id: 'l5', name: 'Lesson 1 — Getting Started', description: 'Giới thiệu chủ đề sở thích cá nhân bằng tiếng Anh.', content: '', duration: '15 phút', status: 'published', blocks: [ { id: 'l5b1', type: 'heading', text: 'Getting Started' } ] },
-        ],
-      },
-    ],
-  },
-];
 
 interface AppData {
   quizzes: Quiz[];
@@ -104,28 +35,10 @@ const initialAppData: AppData = {
   activityLog: mockActivityLog,
 };
 
+const APP_KEY = 'studyhub-app-data-v1';
+
 let listeners: (() => void)[] = [];
-let memorySubjects: Subject[] | null = null;
 let memoryAppData: AppData | null = null;
-
-function loadSubjects(): Subject[] {
-  if (memorySubjects) return memorySubjects;
-  try {
-    const raw = localStorage.getItem(SUBJECTS_KEY);
-    if (raw) {
-      memorySubjects = JSON.parse(raw) as Subject[];
-      return memorySubjects;
-    }
-  } catch { /* ignore */ }
-  memorySubjects = initialSubjects;
-  return memorySubjects;
-}
-
-function saveSubjects(data: Subject[]) {
-  memorySubjects = data;
-  try { localStorage.setItem(SUBJECTS_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  listeners.forEach((l) => l());
-}
 
 function loadAppData(): AppData {
   if (memoryAppData) return memoryAppData;
@@ -146,30 +59,384 @@ function saveAppData(data: AppData) {
   listeners.forEach((l) => l());
 }
 
+let idCounter = 0;
+export function genId(prefix: string): string {
+  idCounter += 1;
+  return `${prefix}${Date.now().toString(36)}${idCounter}`;
+}
+
+function blockToData(b: Block): Record<string, unknown> {
+  const { id: _id, type: _type, ...rest } = b;
+  return rest as Record<string, unknown>;
+}
+
+function dataToBlock(id: string, type: BlockType, data: Record<string, unknown>): Block {
+  return { id, type, ...data } as Block;
+}
+
+// ===== Database fetch =====
+
+async function fetchSubjectsTree(): Promise<Subject[]> {
+  const { data: subjects } = await supabase.from('subjects').select('*').order('sort_order');
+  if (!subjects || subjects.length === 0) return [];
+
+  const subjectIds = subjects.map((s) => s.id);
+  const { data: chapters } = await supabase.from('chapters').select('*').in('subject_id', subjectIds).order('sort_order');
+
+  const chapterIds = chapters?.map((c) => c.id) || [];
+  const { data: lessons } = chapterIds.length > 0
+    ? await supabase.from('lessons').select('*').in('chapter_id', chapterIds).order('sort_order')
+    : { data: [] };
+
+  const lessonIds = lessons?.map((l) => l.id) || [];
+  const { data: blocks } = lessonIds.length > 0
+    ? await supabase.from('lesson_blocks').select('*').in('lesson_id', lessonIds).order('order_index')
+    : { data: [] };
+
+  return subjects.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description || '',
+    color: (s.color as SubjectColor) || 'violet',
+    chapters: (chapters || []).filter((c) => c.subject_id === s.id).map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description || '',
+      lessons: (lessons || []).filter((l) => l.chapter_id === c.id).map((l) => ({
+        id: l.id,
+        name: l.name,
+        description: l.description || '',
+        content: '',
+        duration: l.duration || '20 phút',
+        status: (l.status as Lesson['status']) || 'draft',
+        blocks: (blocks || []).filter((b) => b.lesson_id === l.id).map((b) =>
+          dataToBlock(b.id, b.block_type as BlockType, b.data as Record<string, unknown>),
+        ),
+      })),
+    })),
+  })) as Subject[];
+}
+
+// ===== Database CRUD: Subjects =====
+
+async function dbInsertSubject(name: string, description: string, color: SubjectColor, sortOrder: number): Promise<string> {
+  const { data, error } = await supabase.from('subjects').insert({
+    name, description, color, sort_order: sortOrder,
+  }).select('id').single();
+  if (error) throw error;
+  return data!.id;
+}
+
+async function dbUpdateSubject(id: string, patch: { name?: string; description?: string; color?: string }) {
+  const { error } = await supabase.from('subjects').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+async function dbDeleteSubject(id: string) {
+  const { error } = await supabase.from('subjects').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ===== Database CRUD: Chapters =====
+
+async function dbInsertChapter(subjectId: string, name: string, description: string, sortOrder: number): Promise<string> {
+  const { data, error } = await supabase.from('chapters').insert({
+    subject_id: subjectId, name, description, sort_order: sortOrder,
+  }).select('id').single();
+  if (error) throw error;
+  return data!.id;
+}
+
+async function dbUpdateChapter(id: string, patch: { name?: string; description?: string }) {
+  const { error } = await supabase.from('chapters').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+async function dbDeleteChapter(id: string) {
+  const { error } = await supabase.from('chapters').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ===== Database CRUD: Lessons =====
+
+async function dbInsertLesson(chapterId: string, name: string, description: string, duration: string, status: string, sortOrder: number): Promise<string> {
+  const { data, error } = await supabase.from('lessons').insert({
+    chapter_id: chapterId, name, description, duration, status, sort_order: sortOrder,
+  }).select('id').single();
+  if (error) throw error;
+  return data!.id;
+}
+
+async function dbUpdateLesson(id: string, patch: { name?: string; description?: string; duration?: string; status?: string; chapter_id?: string }) {
+  const { error } = await supabase.from('lessons').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+async function dbDeleteLesson(id: string) {
+  const { error } = await supabase.from('lessons').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ===== Database CRUD: Lesson Blocks =====
+
+async function dbInsertBlock(lessonId: string, block: Block, orderIndex: number): Promise<string> {
+  const { data, error } = await supabase.from('lesson_blocks').insert({
+    lesson_id: lessonId, block_type: block.type, order_index: orderIndex, data: blockToData(block),
+  }).select('id').single();
+  if (error) throw error;
+  return data!.id;
+}
+
+async function dbUpdateBlock(id: string, patch: { block_type?: string; order_index?: number; data?: Record<string, unknown> }) {
+  const { error } = await supabase.from('lesson_blocks').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+async function dbUpdateBlockData(id: string, block: Block) {
+  const { error } = await supabase.from('lesson_blocks').update({ data: blockToData(block) }).eq('id', id);
+  if (error) throw error;
+}
+
+async function dbDeleteBlock(id: string) {
+  const { error } = await supabase.from('lesson_blocks').delete().eq('id', id);
+  if (error) throw error;
+}
+
+async function dbSyncBlockOrder(lessonId: string, blocks: Block[]) {
+  const updates = blocks.map((b, i) =>
+    supabase.from('lesson_blocks').update({ order_index: i }).eq('id', b.id),
+  );
+  await Promise.all(updates);
+}
+
+// ===== Hook =====
+
 export function useStore() {
-  const [subjects, setSubjects] = useState<Subject[]>(loadSubjects);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [appData, setAppData] = useState<AppData>(loadAppData);
+  const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
+
+  const refresh = useCallback(async () => {
+    const tree = await fetchSubjectsTree();
+    setSubjects(tree);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    const listener = () => {
-      setSubjects(loadSubjects());
-      setAppData(loadAppData());
-    };
+    if (initialized.current) return;
+    initialized.current = true;
+    refresh();
+    const listener = () => setAppData(loadAppData());
     listeners.push(listener);
     return () => { listeners = listeners.filter((l) => l !== listener); };
-  }, []);
-
-  const updateSubjects = useCallback((updater: (prev: Subject[]) => Subject[]) => {
-    saveSubjects(updater(loadSubjects()));
-  }, []);
+  }, [refresh]);
 
   const updateAppData = useCallback((updater: (prev: AppData) => AppData) => {
     saveAppData(updater(loadAppData()));
   }, []);
 
+  const reload = useCallback(() => { refresh(); }, [refresh]);
+
+  // ===== Subject CRUD with DB persistence =====
+  const insertSubject = useCallback(async (name: string, description: string, color: SubjectColor): Promise<string> => {
+    const sortOrder = subjects.length;
+    const id = await dbInsertSubject(name, description, color, sortOrder);
+    await refresh();
+    return id;
+  }, [subjects.length, refresh]);
+
+  const updateSubject = useCallback(async (id: string, patch: { name?: string; description?: string; color?: string }) => {
+    setSubjects((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s));
+    await dbUpdateSubject(id, patch);
+  }, []);
+
+  const deleteSubject = useCallback(async (id: string) => {
+    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    await dbDeleteSubject(id);
+  }, []);
+
+  const reorderSubjects = useCallback(async (from: number, to: number) => {
+    setSubjects((prev) => {
+      const next = moveArray(prev, from, to);
+      next.forEach((s, i) => supabase.from('subjects').update({ sort_order: i }).eq('id', s.id));
+      return next;
+    });
+  }, []);
+
+  // ===== Chapter CRUD =====
+  const insertChapter = useCallback(async (subjectId: string, name: string, description: string): Promise<string> => {
+    const subj = subjects.find((s) => s.id === subjectId);
+    const sortOrder = subj?.chapters.length || 0;
+    const id = await dbInsertChapter(subjectId, name, description, sortOrder);
+    await refresh();
+    return id;
+  }, [subjects, refresh]);
+
+  const updateChapter = useCallback(async (id: string, patch: { name?: string; description?: string }) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => c.id === id ? { ...c, ...patch } : c),
+    })));
+    await dbUpdateChapter(id, patch);
+  }, []);
+
+  const deleteChapter = useCallback(async (id: string) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.filter((c) => c.id !== id),
+    })));
+    await dbDeleteChapter(id);
+  }, []);
+
+  const reorderChapters = useCallback(async (subjectId: string, fromId: string, toId: string) => {
+    setSubjects((prev) => prev.map((s) => {
+      if (s.id !== subjectId) return s;
+      const from = s.chapters.findIndex((c) => c.id === fromId);
+      const to = s.chapters.findIndex((c) => c.id === toId);
+      if (from === -1 || to === -1) return s;
+      const next = moveArray(s.chapters, from, to);
+      next.forEach((c, i) => supabase.from('chapters').update({ sort_order: i }).eq('id', c.id));
+      return { ...s, chapters: next };
+    }));
+  }, []);
+
+  // ===== Lesson CRUD =====
+  const insertLesson = useCallback(async (chapterId: string, name: string, description: string, duration: string, status: 'draft' | 'published'): Promise<string> => {
+    const subj = subjects.find((s) => s.chapters.some((c) => c.id === chapterId));
+    const ch = subj?.chapters.find((c) => c.id === chapterId);
+    const sortOrder = ch?.lessons.length || 0;
+    const id = await dbInsertLesson(chapterId, name, description, duration, status, sortOrder);
+    await refresh();
+    return id;
+  }, [subjects, refresh]);
+
+  const updateLesson = useCallback(async (id: string, patch: { name?: string; description?: string; duration?: string; status?: string; chapter_id?: string }) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.map((l) => l.id === id ? { ...l, ...patch } as Lesson : l),
+      })),
+    })));
+    await dbUpdateLesson(id, patch);
+  }, []);
+
+  const deleteLesson = useCallback(async (id: string) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.filter((l) => l.id !== id),
+      })),
+    })));
+    await dbDeleteLesson(id);
+  }, []);
+
+  const reorderLessons = useCallback(async (subjectId: string, chapterId: string, fromId: string, toId: string) => {
+    setSubjects((prev) => prev.map((s) => {
+      if (s.id !== subjectId) return s;
+      return {
+        ...s,
+        chapters: s.chapters.map((c) => {
+          if (c.id !== chapterId) return c;
+          const from = c.lessons.findIndex((l) => l.id === fromId);
+          const to = c.lessons.findIndex((l) => l.id === toId);
+          if (from === -1 || to === -1) return c;
+          const next = moveArray(c.lessons, from, to);
+          next.forEach((l, i) => supabase.from('lessons').update({ sort_order: i }).eq('id', l.id));
+          return { ...c, lessons: next };
+        }),
+      };
+    }));
+  }, []);
+
+  // ===== Block CRUD =====
+  const insertBlock = useCallback(async (lessonId: string, block: Block): Promise<string> => {
+    const lesson = findLessonById(subjects, lessonId);
+    const orderIndex = lesson?.blocks.length || 0;
+    const id = await dbInsertBlock(lessonId, block, orderIndex);
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.map((l) => l.id === lessonId ? { ...l, blocks: [...l.blocks, { ...block, id }] } : l),
+      })),
+    })));
+    return id;
+  }, [subjects, refresh]);
+
+  const updateBlock = useCallback(async (lessonId: string, blockId: string, block: Block) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.map((l) => l.id === lessonId ? {
+          ...l,
+          blocks: l.blocks.map((b) => b.id === blockId ? block : b),
+        } : l),
+      })),
+    })));
+    await dbUpdateBlockData(blockId, block);
+  }, []);
+
+  const deleteBlock = useCallback(async (lessonId: string, blockId: string) => {
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.map((l) => l.id === lessonId ? {
+          ...l,
+          blocks: l.blocks.filter((b) => b.id !== blockId),
+        } : l),
+      })),
+    })));
+    await dbDeleteBlock(blockId);
+  }, []);
+
+  const reorderBlocks = useCallback(async (lessonId: string, from: number, to: number) => {
+    let reorderedBlocks: Block[] = [];
+    setSubjects((prev) => prev.map((s) => ({
+      ...s,
+      chapters: s.chapters.map((c) => ({
+        ...c,
+        lessons: c.lessons.map((l) => {
+          if (l.id !== lessonId) return l;
+          reorderedBlocks = moveArray(l.blocks, from, to);
+          return { ...l, blocks: reorderedBlocks };
+        }),
+      })),
+    })));
+    if (reorderedBlocks.length > 0) {
+      await dbSyncBlockOrder(lessonId, reorderedBlocks);
+    }
+  }, []);
+
   return {
     data: subjects,
-    updateSubjects,
+    loading,
+    reload,
+    // Subject CRUD
+    insertSubject,
+    updateSubject,
+    deleteSubject,
+    reorderSubjects,
+    // Chapter CRUD
+    insertChapter,
+    updateChapter,
+    deleteChapter,
+    reorderChapters,
+    // Lesson CRUD
+    insertLesson,
+    updateLesson,
+    deleteLesson,
+    reorderLessons,
+    // Block CRUD
+    insertBlock,
+    updateBlock,
+    deleteBlock,
+    reorderBlocks,
+    // App data (localStorage)
     quizzes: appData.quizzes,
     templates: appData.templates,
     students: appData.students,
@@ -183,15 +450,49 @@ export function useStore() {
   };
 }
 
-let idCounter = 0;
-export function genId(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}${Date.now().toString(36)}${idCounter}`;
+// ===== Helpers =====
+
+function findLessonById(data: Subject[], lessonId: string): Lesson | undefined {
+  for (const s of data) {
+    for (const c of s.chapters) {
+      const l = c.lessons.find((l) => l.id === lessonId);
+      if (l) return l;
+    }
+  }
+  return undefined;
 }
 
 export function createBlock(type: BlockType): Block {
-  const base: Block = { id: genId('b'), type };
-  if (type === 'quiz') base.quizItems = [{ id: genId('q'), question: '', answer: '' }];
+  const id = genId('b');
+  const base: Block = { id, type };
+  if (type === 'question') {
+    base.questionText = '';
+    base.questionChoices = [
+      { id: genId('ch'), text: '', correct: true },
+      { id: genId('ch'), text: '', correct: false },
+    ];
+    base.questionCorrectIndex = 0;
+  }
+  if (type === 'exercise') {
+    base.exerciseQuestion = '';
+    base.exerciseAnswerType = 'text';
+    base.exerciseAnswer = '';
+    base.exerciseExplanation = '';
+  }
+  if (type === 'quiz') {
+    base.quizItems = [{
+      id: genId('q'),
+      question: '',
+      choices: [
+        { id: genId('ch'), text: '', correct: true },
+        { id: genId('ch'), text: '', correct: false },
+      ],
+      explanation: '',
+    }];
+  }
+  if (type === 'summary') {
+    base.summaryItems = [''];
+  }
   return base;
 }
 
@@ -222,3 +523,5 @@ export function findLesson(
 export function countAllLessons(data: Subject[]): number {
   return data.reduce((sum, s) => sum + s.chapters.reduce((cs, c) => cs + c.lessons.length, 0), 0);
 }
+
+export { blockToData };

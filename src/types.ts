@@ -8,14 +8,22 @@ export type BlockType =
   | 'image'
   | 'video'
   | 'slide'
-  | 'quiz'
+  | 'question'
   | 'exercise'
+  | 'quiz'
   | 'summary';
+
+export interface QuizChoice {
+  id: string;
+  text: string;
+  correct: boolean;
+}
 
 export interface QuizItem {
   id: string;
   question: string;
-  answer: string;
+  choices: QuizChoice[];
+  explanation?: string;
 }
 
 export interface Block {
@@ -26,10 +34,21 @@ export interface Block {
   imageFileName?: string;
   imageCaption?: string;
   videoUrl?: string;
+  slideUrl?: string;
   slideFileName?: string;
   slideFileType?: 'pptx' | 'pdf';
   slideFileSize?: string;
+  slideCaption?: string;
+  questionText?: string;
+  questionChoices?: QuizChoice[];
+  questionCorrectIndex?: number;
+  questionExplanation?: string;
+  exerciseQuestion?: string;
+  exerciseAnswerType?: 'text' | 'number';
+  exerciseAnswer?: string;
+  exerciseExplanation?: string;
   quizItems?: QuizItem[];
+  summaryItems?: string[];
 }
 
 export type LessonStatus = 'draft' | 'published';

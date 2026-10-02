@@ -13,18 +13,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { Chapter, Lesson, Subject, SubjectColor } from '../types';
-import {
-  createBlock,
-  findChapter,
-  genId,
-  moveArray,
-  useStore,
-} from '../store';
+import type { SubjectColor } from '../types';
+import { findChapter, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { toast } from '../ui/Toast';
-import type { Route } from '../types';
 
 const COLOR_OPTIONS: SubjectColor[] = ['violet', 'green', 'blue', 'orange', 'pink'];
 
@@ -33,11 +26,11 @@ interface SubjectsPageProps {
 }
 
 export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
-  const { data, updateSubjects } = useStore();
+  const store = useStore();
+  const { data, loading } = store;
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
-  // modal state
   const [modalMode, setModalMode] = useState<'subject' | 'chapter' | 'lesson' | null>(null);
   const [modalEditingId, setModalEditingId] = useState<string | null>(null);
   const [modalContextSubjectId, setModalContextSubjectId] = useState<string | null>(null);
@@ -48,7 +41,6 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
   const [formDuration, setFormDuration] = useState('');
   const [formStatus, setFormStatus] = useState<'draft' | 'published'>('draft');
 
-  // drag state
   const [dragType, setDragType] = useState<'subject' | 'chapter' | 'lesson' | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -95,75 +87,58 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
     setModalEditingId(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) {
       toast('Vui lòng nhập tên', 'error');
       return;
     }
-    if (modalMode === 'subject') {
-      if (modalEditingId) {
-        updateSubjects((prev) => prev.map((s) => s.id === modalEditingId ? { ...s, name: formName.trim(), description: formDesc.trim(), color: formColor } : s));
-        toast('Đã cập nhật môn học');
-      } else {
-        const newSubject: Subject = { id: genId('s'), name: formName.trim(), description: formDesc.trim(), color: formColor, chapters: [] };
-        updateSubjects((prev) => [...prev, newSubject]);
-        toast('Đã thêm môn học mới');
+    try {
+      if (modalMode === 'subject') {
+        if (modalEditingId) {
+          await store.updateSubject(modalEditingId, { name: formName.trim(), description: formDesc.trim(), color: formColor });
+          toast('Đã cập nhật môn học');
+        } else {
+          await store.insertSubject(formName.trim(), formDesc.trim(), formColor);
+          toast('Đã thêm môn học mới');
+        }
+      } else if (modalMode === 'chapter' && modalContextSubjectId) {
+        if (modalEditingId) {
+          await store.updateChapter(modalEditingId, { name: formName.trim(), description: formDesc.trim() });
+          toast('Đã cập nhật chương');
+        } else {
+          await store.insertChapter(modalContextSubjectId, formName.trim(), formDesc.trim());
+          toast('Đã thêm chương mới');
+        }
+      } else if (modalMode === 'lesson' && modalContextSubjectId && modalContextChapterId) {
+        if (modalEditingId) {
+          await store.updateLesson(modalEditingId, { name: formName.trim(), duration: formDuration.trim(), status: formStatus });
+          toast('Đã cập nhật bài giảng');
+        } else {
+          await store.insertLesson(modalContextChapterId, formName.trim(), '', formDuration.trim() || '20 phút', formStatus);
+          toast('Đã thêm bài giảng mới');
+        }
       }
-    } else if (modalMode === 'chapter' && modalContextSubjectId) {
-      const sid = modalContextSubjectId;
-      if (modalEditingId) {
-        updateSubjects((prev) => prev.map((s) => s.id === sid ? {
-          ...s,
-          chapters: s.chapters.map((c) => c.id === modalEditingId ? { ...c, name: formName.trim(), description: formDesc.trim() } : c),
-        } : s));
-        toast('Đã cập nhật chương');
-      } else {
-        const newChapter: Chapter = { id: genId('c'), name: formName.trim(), description: formDesc.trim(), lessons: [] };
-        updateSubjects((prev) => prev.map((s) => s.id === sid ? { ...s, chapters: [...s.chapters, newChapter] } : s));
-        toast('Đã thêm chương mới');
-      }
-    } else if (modalMode === 'lesson' && modalContextSubjectId && modalContextChapterId) {
-      const sid = modalContextSubjectId;
-      const cid = modalContextChapterId;
-      if (modalEditingId) {
-        updateSubjects((prev) => prev.map((s) => s.id === sid ? {
-          ...s,
-          chapters: s.chapters.map((c) => c.id === cid ? {
-            ...c,
-            lessons: c.lessons.map((l) => l.id === modalEditingId ? { ...l, name: formName.trim(), duration: formDuration.trim(), status: formStatus } : l),
-          } : c),
-        } : s));
-        toast('Đã cập nhật bài giảng');
-      } else {
-        const newLesson: Lesson = { id: genId('l'), name: formName.trim(), description: '', content: '', duration: formDuration.trim() || '20 phút', status: formStatus, blocks: [createBlock('heading')] };
-        updateSubjects((prev) => prev.map((s) => s.id === sid ? {
-          ...s,
-          chapters: s.chapters.map((c) => c.id === cid ? { ...c, lessons: [...c.lessons, newLesson] } : c),
-        } : s));
-        toast('Đã thêm bài giảng mới');
-      }
+    } catch {
+      toast('Lỗi khi lưu', 'error');
     }
     closeModal();
   };
 
-  const deleteSubject = (id: string) => {
+  const deleteSubject = async (id: string) => {
     if (!confirm('Xóa môn học này? Tất cả chương và bài giảng bên trong cũng sẽ bị xóa.')) return;
-    updateSubjects((prev) => prev.filter((s) => s.id !== id));
+    await store.deleteSubject(id);
     toast('Đã xóa môn học', 'info');
   };
 
-  const deleteChapter = (subjectId: string, chapterId: string) => {
+  const deleteChapter = async (id: string) => {
     if (!confirm('Xóa chương này? Tất cả bài giảng bên trong cũng sẽ bị xóa.')) return;
-    updateSubjects((prev) => prev.map((s) => s.id === subjectId ? { ...s, chapters: s.chapters.filter((c) => c.id !== chapterId) } : s));
+    await store.deleteChapter(id);
     toast('Đã xóa chương', 'info');
   };
 
-  const deleteLesson = (subjectId: string, chapterId: string, lessonId: string) => {
+  const deleteLesson = async (id: string) => {
     if (!confirm('Xóa bài giảng này?')) return;
-    updateSubjects((prev) => prev.map((s) => s.id === subjectId ? {
-      ...s,
-      chapters: s.chapters.map((c) => c.id === chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== lessonId) } : c),
-    } : s));
+    await store.deleteLesson(id);
     toast('Đã xóa bài giảng', 'info');
   };
 
@@ -177,42 +152,20 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
     if (dragType === 'subject') {
       const from = data.findIndex((s) => s.id === dragId);
       const to = data.findIndex((s) => s.id === targetId);
-      if (from !== -1 && to !== -1) updateSubjects((prev) => moveArray(prev, from, to));
+      if (from !== -1 && to !== -1) store.reorderSubjects(from, to);
     }
     setDragId(null);
     setDragType(null);
     setDragOverId(null);
   };
 
-  const reorderChapter = (subjectId: string, fromId: string, toId: string) => {
-    updateSubjects((prev) => prev.map((s) => {
-      if (s.id !== subjectId) return s;
-      const from = s.chapters.findIndex((c) => c.id === fromId);
-      const to = s.chapters.findIndex((c) => c.id === toId);
-      if (from === -1 || to === -1) return s;
-      return { ...s, chapters: moveArray(s.chapters, from, to) };
-    }));
-  };
-
-  const reorderLesson = (subjectId: string, chapterId: string, fromId: string, toId: string) => {
-    updateSubjects((prev) => prev.map((s) => {
-      if (s.id !== subjectId) return s;
-      return {
-        ...s,
-        chapters: s.chapters.map((c) => {
-          if (c.id !== chapterId) return c;
-          const from = c.lessons.findIndex((l) => l.id === fromId);
-          const to = c.lessons.findIndex((l) => l.id === toId);
-          if (from === -1 || to === -1) return c;
-          return { ...c, lessons: moveArray(c.lessons, from, to) };
-        }),
-      };
-    }));
-  };
-
   const modalTitle = modalMode === 'subject' ? (modalEditingId ? 'Chỉnh sửa môn học' : 'Thêm môn học')
     : modalMode === 'chapter' ? (modalEditingId ? 'Chỉnh sửa chương' : 'Thêm chương')
     : modalMode === 'lesson' ? (modalEditingId ? 'Chỉnh sửa bài giảng' : 'Thêm bài giảng') : '';
+
+  if (loading) {
+    return <div className="page-container"><div className="empty-hint">Đang tải...</div></div>;
+  }
 
   return (
     <div className="page-container">
@@ -237,10 +190,7 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
             >
               <div className="subject-header">
                 <div className="subject-grip"><GripVertical size={16} /></div>
-                <button
-                  className="subject-expand-btn"
-                  onClick={() => setExpandedSubject(isExpanded ? null : subject.id)}
-                >
+                <button className="subject-expand-btn" onClick={() => setExpandedSubject(isExpanded ? null : subject.id)}>
                   {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 </button>
                 <div className={`subject-color-dot ${subject.color}`} />
@@ -271,11 +221,11 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                         onDragStart={() => { setDragType('chapter'); setDragId(chapter.id); setModalContextSubjectId(subject.id); }}
                         onDragEnter={() => { setDragOverId(chapter.id); }}
                         onDragEnd={() => {
-                          if (dragType === 'chapter' && dragId && dragId !== chapter.id) reorderChapter(subject.id, dragId, chapter.id);
+                          if (dragType === 'chapter' && dragId && dragId !== chapter.id) store.reorderChapters(subject.id, dragId, chapter.id);
                           setDragId(null); setDragType(null); setDragOverId(null);
                         }}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => { e.preventDefault(); if (dragType === 'chapter' && dragId && dragId !== chapter.id) reorderChapter(subject.id, dragId, chapter.id); setDragId(null); setDragType(null); setDragOverId(null); }}
+                        onDrop={(e) => { e.preventDefault(); if (dragType === 'chapter' && dragId && dragId !== chapter.id) store.reorderChapters(subject.id, dragId, chapter.id); setDragId(null); setDragType(null); setDragOverId(null); }}
                       >
                         <div className="chapter-header">
                           <div className="subject-grip"><GripVertical size={15} /></div>
@@ -289,7 +239,7 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                           </div>
                           <div className="card-actions">
                             <button className="card-action-btn" onClick={() => openModal('chapter', chapter.id, subject.id)}><Pencil size={13} /> Chỉnh sửa</button>
-                            <button className="card-action-btn danger" onClick={() => deleteChapter(subject.id, chapter.id)}><Trash2 size={13} /></button>
+                            <button className="card-action-btn danger" onClick={() => deleteChapter(chapter.id)}><Trash2 size={13} /></button>
                           </div>
                         </div>
 
@@ -307,11 +257,11 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                                 onDragStart={() => { setDragType('lesson'); setDragId(lesson.id); setModalContextSubjectId(subject.id); setModalContextChapterId(chapter.id); }}
                                 onDragEnter={() => setDragOverId(lesson.id)}
                                 onDragEnd={() => {
-                                  if (dragType === 'lesson' && dragId && dragId !== lesson.id) reorderLesson(subject.id, chapter.id, dragId, lesson.id);
+                                  if (dragType === 'lesson' && dragId && dragId !== lesson.id) store.reorderLessons(subject.id, chapter.id, dragId, lesson.id);
                                   setDragId(null); setDragType(null); setDragOverId(null);
                                 }}
                                 onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => { e.preventDefault(); if (dragType === 'lesson' && dragId && dragId !== lesson.id) reorderLesson(subject.id, chapter.id, dragId, lesson.id); setDragId(null); setDragType(null); setDragOverId(null); }}
+                                onDrop={(e) => { e.preventDefault(); if (dragType === 'lesson' && dragId && dragId !== lesson.id) store.reorderLessons(subject.id, chapter.id, dragId, lesson.id); setDragId(null); setDragType(null); setDragOverId(null); }}
                               >
                                 <div className="subject-grip"><GripVertical size={14} /></div>
                                 <FileText size={15} className="lesson-icon" />
@@ -323,14 +273,14 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                                 <div className="card-actions">
                                   <button className="card-action-btn" onClick={() => onOpenLesson(subject.id, chapter.id, lesson.id)}><Edit2 size={13} /> Soạn bài</button>
                                   <button className="card-action-btn" onClick={() => openModal('lesson', lesson.id, subject.id, chapter.id)}><Pencil size={13} /></button>
-                                  <button className="card-action-btn danger" onClick={() => deleteLesson(subject.id, chapter.id, lesson.id)}><Trash2 size={13} /></button>
+                                  <button className="card-action-btn danger" onClick={() => deleteLesson(lesson.id)}><Trash2 size={13} /></button>
                                 </div>
                               </div>
                             ))}
                             {chapter.lessons.length === 0 && <p className="empty-hint">Chưa có bài giảng nào. Bấm "Thêm bài" để tạo.</p>}
                           </div>
                         )}
-                      </div>
+</div>
                     );
                   })}
                   {subject.chapters.length === 0 && <p className="empty-hint">Chưa có chương nào. Bấm "Thêm chương" để tạo.</p>}
@@ -339,6 +289,7 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
             </div>
           );
         })}
+        {data.length === 0 && <p className="empty-hint">Chưa có môn học nào. Bấm "Thêm môn học" để tạo.</p>}
       </div>
 
       <Modal

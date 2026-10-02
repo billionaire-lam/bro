@@ -1,7 +1,7 @@
 import { Edit2, FileEdit, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Lesson } from '../types';
-import { genId, useStore } from '../store';
+import { useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { DataTable, EmptyState, FilterBar, SearchInput, Select, StatusBadge } from '../ui/PageComponents';
@@ -19,7 +19,8 @@ interface FlatLesson extends Lesson {
 }
 
 export function LessonsPage({ onEditLesson }: Props) {
-  const { data, updateSubjects } = useStore();
+  const store = useStore();
+  const { data, loading } = store;
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [chapterFilter, setChapterFilter] = useState('');
@@ -82,64 +83,49 @@ export function LessonsPage({ onEditLesson }: Props) {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim() || !formSubject || !formChapter) {
       toast('Vui lòng nhập đủ thông tin', 'error');
       return;
     }
-    if (editing) {
-      if (editing.subjectId === formSubject && editing.chapterId === formChapter) {
-        updateSubjects((prev) => prev.map((s) => s.id === formSubject ? {
-          ...s,
-          chapters: s.chapters.map((c) => c.id === formChapter ? {
-            ...c,
-            lessons: c.lessons.map((l) => l.id === editing.id ? { ...l, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus } : l),
-          } : c),
-        } : s));
+    try {
+      if (editing) {
+        const patch: { name: string; description: string; duration: string; status: string; chapter_id?: string } = {
+          name: formName.trim(),
+          description: formDescription.trim(),
+          duration: formDuration.trim(),
+          status: formStatus,
+        };
+        if (editing.subjectId !== formSubject || editing.chapterId !== formChapter) {
+          patch.chapter_id = formChapter;
+        }
+        await store.updateLesson(editing.id, patch);
+        toast('Đã cập nhật bài giảng');
       } else {
-        updateSubjects((prev) => prev.map((s) => {
-          if (s.id === editing.subjectId) {
-            return { ...s, chapters: s.chapters.map((c) => c.id === editing.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== editing.id) } : c) };
-          }
-          if (s.id === formSubject) {
-            const moved = { ...editing, name: formName.trim(), description: formDescription.trim(), duration: formDuration.trim(), status: formStatus };
-            return { ...s, chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, moved] } : c) };
-          }
-          return s;
-        }));
+        await store.insertLesson(formChapter, formName.trim(), formDescription.trim(), formDuration.trim(), formStatus);
+        toast('Đã thêm bài giảng');
       }
-      toast('Đã cập nhật bài giảng');
-    } else {
-      const newLesson: Lesson = { id: genId('l'), name: formName.trim(), description: formDescription.trim(), content: '', duration: formDuration.trim(), status: formStatus, blocks: [] };
-      updateSubjects((prev) => prev.map((s) => s.id === formSubject ? {
-        ...s,
-        chapters: s.chapters.map((c) => c.id === formChapter ? { ...c, lessons: [...c.lessons, newLesson] } : c),
-      } : s));
-      toast('Đã thêm bài giảng');
+    } catch {
+      toast('Lỗi khi lưu', 'error');
     }
     setModalOpen(false);
   };
 
-  const handleDelete = (lesson: FlatLesson) => {
+  const handleDelete = async (lesson: FlatLesson) => {
     if (!confirm('Bạn có chắc muốn xóa bài giảng này?')) return;
-    updateSubjects((prev) => prev.map((s) => s.id === lesson.subjectId ? {
-      ...s,
-      chapters: s.chapters.map((c) => c.id === lesson.chapterId ? { ...c, lessons: c.lessons.filter((l) => l.id !== lesson.id) } : c),
-    } : s));
+    await store.deleteLesson(lesson.id);
     toast('Đã xóa bài giảng', 'info');
   };
 
   const toggleStatus = (lesson: FlatLesson) => {
     const newStatus = lesson.status === 'draft' ? 'published' : 'draft';
-    updateSubjects((prev) => prev.map((s) => s.id === lesson.subjectId ? {
-      ...s,
-      chapters: s.chapters.map((c) => c.id === lesson.chapterId ? {
-        ...c,
-        lessons: c.lessons.map((l) => l.id === lesson.id ? { ...l, status: newStatus } : l),
-      } : c),
-    } : s));
+    store.updateLesson(lesson.id, { status: newStatus });
     toast(newStatus === 'published' ? 'Đã xuất bản' : 'Đã chuyển sang nháp');
   };
+
+  if (loading) {
+    return <div className="page-container"><div className="empty-hint">Đang tải...</div></div>;
+  }
 
   return (
     <div className="page-container">
