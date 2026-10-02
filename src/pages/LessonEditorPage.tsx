@@ -60,13 +60,12 @@ export function LessonEditorPage({ route, onBack }: LessonEditorPageProps) {
     store.reorderBlocks(lesson.id, index, index + 1);
   };
 
-  const duplicateBlock = (index: number) => {
+  const duplicateBlock = async (index: number) => {
     const orig = blocks[index];
     const dup: Block = { ...orig, id: `b${Date.now().toString(36)}d${index}` };
-    const newBlocks = [...blocks.slice(0, index + 1), dup, ...blocks.slice(index + 1)];
-    store.insertBlock(lesson.id, dup).then(() => {
-      store.reorderBlocks(lesson.id, newBlocks.findIndex((b) => b.id === dup.id), index + 1);
-    });
+    await store.insertBlock(lesson.id, dup);
+    const newIndex = blocks.length;
+    await store.reorderBlocks(lesson.id, newIndex, index + 1);
     toast('Đã nhân đôi block');
   };
 

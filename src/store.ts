@@ -246,9 +246,9 @@ export function useStore() {
     return id;
   }, [subjects.length, refresh]);
 
-  const updateSubject = useCallback(async (id: string, patch: { name?: string; description?: string; color?: string }) => {
+  const updateSubject = useCallback(async (id: string, patch: { name?: string; description?: string; color?: SubjectColor }) => {
     setSubjects((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s));
-    await dbUpdateSubject(id, patch);
+    await dbUpdateSubject(id, patch as { name?: string; description?: string; color?: string });
   }, []);
 
   const deleteSubject = useCallback(async (id: string) => {

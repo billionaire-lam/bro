@@ -11,8 +11,8 @@ interface LessonEditPageProps {
 }
 
 export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
-  const { data, updateSubjects } = useStore();
-  const lesson = findLesson(data, route.subjectId, route.chapterId, route.lessonId);
+  const store = useStore();
+  const lesson = findLesson(store.data, route.subjectId, route.chapterId, route.lessonId);
 
   const [previewMode, setPreviewMode] = useState(false);
   const [name, setName] = useState(lesson?.name || '');
@@ -28,21 +28,8 @@ export function LessonEditPage({ route, onBack }: LessonEditPageProps) {
     );
   }
 
-  const updateLesson = (updates: Partial<typeof lesson>) => {
-    updateSubjects((prev) => prev.map((s) => {
-      if (s.id !== route.subjectId) return s;
-      return {
-        ...s,
-        chapters: s.chapters.map((c) => {
-          if (c.id !== route.chapterId) return c;
-          return { ...c, lessons: c.lessons.map((l) => l.id === route.lessonId ? { ...l, ...updates } : l) };
-        }),
-      };
-    }));
-  };
-
   const handleSave = () => {
-    updateLesson({ name: name.trim(), description: description.trim(), content });
+    store.updateLesson(lesson.id, { name: name.trim(), description: description.trim() });
     toast('Đã lưu bài giảng');
   };
 
