@@ -16,7 +16,7 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ error: string | null; needsLogin: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signInWithFacebook: () => Promise<{ error: string | null }>;
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, displayName: string): Promise<{ error: string | null }> => {
+  const signUp = async (email: string, password: string, displayName: string): Promise<{ error: string | null; needsLogin: boolean }> => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -96,13 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) {
-      return { error: mapAuthError(error.message) };
+      return { error: mapAuthError(error.message), needsLogin: false };
     }
-    if (data.user) {
+    if (data.user && data.session) {
       const p = await fetchProfile(data.user.id);
       setProfile(p);
+      return { error: null, needsLogin: false };
     }
-    return { error: null };
+    return { error: null, needsLogin: true };
   };
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {

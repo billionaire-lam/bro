@@ -1,43 +1,93 @@
-import { BookOpen, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { BookOpen, Check, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../auth';
 import { toast } from '../ui/Toast';
+
+function passwordStrength(pw: string): { score: number; label: string; color: string } {
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const labels = ['Quá yếu', 'Yếu', 'Trung bình', 'Khá tốt', 'Mạnh', 'Rất mạnh'];
+  const colors = ['#f25961', '#f25961', '#f0a020', '#f0c020', '#39ac62', '#2b9a5f'];
+  return { score, label: labels[score], color: colors[score] };
+}
 
 export function LoginPage() {
   const { signIn, signUp, signInWithGoogle, signInWithFacebook } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const pwStrength = passwordStrength(password);
+
+  const switchMode = (newMode: 'login' | 'signup') => {
+    setMode(newMode);
+    setError(null);
+    setSuccessMsg(null);
+    setPassword('');
+    setConfirmPassword('');
+  };
+
+  const validateSignup = (): string | null => {
+    if (!displayName.trim()) return 'Vui lòng nhập tên hiển thị';
+    if (displayName.trim().length < 2) return 'Tên hiển thị phải có ít nhất 2 ký tự';
+    if (!email.trim()) return 'Vui lòng nhập email';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Email không hợp lệ';
+    if (password.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (password !== confirmPassword) return 'Mật khẩu xác nhận không khớp';
+    return null;
+  };
+
+  const validateLogin = (): string | null => {
+    if (!email.trim() || !password.trim()) return 'Vui lòng nhập email và mật khẩu';
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim() || !password.trim()) {
-      setError('Vui lòng nhập email và mật khẩu');
+    setSuccessMsg(null);
+
+    const validationError = mode === 'login' ? validateLogin() : validateSignup();
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    if (mode === 'signup' && !displayName.trim()) {
-      setError('Vui lòng nhập tên hiển thị');
-      return;
-    }
+
     setBusy(true);
     if (mode === 'login') {
       const { error: err } = await signIn(email.trim(), password);
       if (err) setError(err);
     } else {
-      const { error: err } = await signUp(email.trim(), password, displayName.trim());
-      if (err) setError(err);
-      else toast('Tài khoản đã được tạo');
+      const { error: err, needsLogin } = await signUp(email.trim(), password, displayName.trim());
+      if (err) {
+        setError(err);
+      } else if (needsLogin) {
+        setSuccessMsg('Tài khoản đã được tạo. Vui lòng đăng nhập để tiếp tục.');
+        switchMode('login');
+        setPassword('');
+        setConfirmPassword('');
+        setDisplayName('');
+        toast('Tài khoản đã được tạo thành công');
+      } else {
+        toast('Tài khoản đã được tạo');
+      }
     }
     setBusy(false);
   };
 
   const handleGoogle = async () => {
     setError(null);
+    setSuccessMsg(null);
     setBusy(true);
     const { error: err } = await signInWithGoogle();
     if (err) { setError(err); setBusy(false); }
@@ -45,6 +95,7 @@ export function LoginPage() {
 
   const handleFacebook = async () => {
     setError(null);
+    setSuccessMsg(null);
     setBusy(true);
     const { error: err } = await signInWithFacebook();
     if (err) { setError(err); setBusy(false); }
@@ -60,18 +111,23 @@ export function LoginPage() {
         </div>
 
         {error && <div className="login-error">{error}</div>}
+        {successMsg && <div className="login-success"><Check size={16} /> {successMsg}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           {mode === 'signup' && (
             <div className="login-field">
               <label>Tên hiển thị</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Nguyễn Văn A"
-                autoComplete="name"
-              />
+              <div className="login-input-wrap">
+                <User size={17} className="login-input-icon" />
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Nguyễn Văn A"
+                  autoComplete="name"
+                  autoFocus
+                />
+              </div>
             </div>
           )}
           <div className="login-field">
@@ -84,7 +140,7 @@ export function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email@example.com"
                 autoComplete="email"
-                autoFocus
+                autoFocus={mode === 'login'}
               />
             </div>
           </div>
@@ -103,7 +159,36 @@ export function LoginPage() {
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
             </div>
+            {mode === 'signup' && password.length > 0 && (
+              <div className="pw-strength">
+                <div className="pw-strength-bar">
+                  <div className="pw-strength-fill" style={{ width: `${(pwStrength.score / 5) * 100}%`, background: pwStrength.color }} />
+                </div>
+                <span className="pw-strength-label" style={{ color: pwStrength.color }}>{pwStrength.label}</span>
+              </div>
+            )}
           </div>
+          {mode === 'signup' && (
+            <div className="login-field">
+              <label>Xác nhận mật khẩu</label>
+              <div className="login-input-wrap">
+                <Lock size={17} className="login-input-icon" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+                {confirmPassword.length > 0 && password === confirmPassword && (
+                  <Check size={17} className="login-input-check" />
+                )}
+              </div>
+              {confirmPassword.length > 0 && password !== confirmPassword && (
+                <span className="pw-mismatch">Mật khẩu không khớp</span>
+              )}
+            </div>
+          )}
 
           {mode === 'login' && (
             <button type="button" className="login-forgot" onClick={() => toast('Vui lòng liên hệ quản trị viên để đặt lại mật khẩu', 'info')}>
@@ -129,9 +214,9 @@ export function LoginPage() {
 
         <div className="login-switch">
           {mode === 'login' ? (
-            <>Chưa có tài khoản? <button onClick={() => { setMode('signup'); setError(null); }}>Đăng ký</button></>
+            <>Chưa có tài khoản? <button type="button" onClick={() => switchMode('signup')}>Đăng ký</button></>
           ) : (
-            <>Đã có tài khoản? <button onClick={() => { setMode('login'); setError(null); }}>Đăng nhập</button></>
+            <>Đã có tài khoản? <button type="button" onClick={() => switchMode('login')}>Đăng nhập</button></>
           )}
         </div>
 

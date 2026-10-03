@@ -788,6 +788,16 @@ button { border: 0; cursor: pointer; }
 .settings-section h2 { display: flex; align-items: center; gap: 8px; }
 .settings-section h2 svg { color: #6c50e6; }
 
+/* ===== Login: password strength, success, mismatch ===== */
+.pw-strength { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.pw-strength-bar { flex: 1; height: 4px; background: #e7ebf1; border-radius: 4px; overflow: hidden; }
+.pw-strength-fill { height: 100%; border-radius: inherit; transition: width .2s ease, background .2s ease; }
+.pw-strength-label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.pw-mismatch { font-size: 11px; color: #f25961; font-weight: 500; margin-top: 4px; }
+.login-success { display: flex; align-items: center; gap: 8px; background: #e7f7ed; color: #2b9a5f; font-size: 13px; font-weight: 500; padding: 10px 14px; border-radius: 8px; margin-bottom: 18px; }
+.login-success svg { flex-shrink: 0; }
+.login-input-check { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #2b9a5f; pointer-events: none; }
+
 /* ===== Responsive for login ===== */
 @media (max-width: 480px) {
   .login-card { padding: 28px 20px 24px; }
