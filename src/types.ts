@@ -85,6 +85,7 @@ export type Route =
   | { name: 'subjects' }
   | { name: 'lesson-editor'; subjectId: string; chapterId: string; lessonId: string }
   | { name: 'lesson-edit'; subjectId: string; chapterId: string; lessonId: string }
+  | { name: 'lesson-view'; subjectId: string; chapterId: string; lessonId: string }
   | { name: 'lessons' }
   | { name: 'quiz' }
   | { name: 'templates' }
