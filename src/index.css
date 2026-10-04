@@ -793,6 +793,12 @@ button { border: 0; cursor: pointer; }
 .pw-strength-bar { flex: 1; height: 4px; background: #e7ebf1; border-radius: 4px; overflow: hidden; }
 .pw-strength-fill { height: 100%; border-radius: inherit; transition: width .2s ease, background .2s ease; }
 .pw-strength-label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.pw-reqs { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.pw-reqs li { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8993a4; transition: color .15s; }
+.pw-reqs li.met { color: #2b9a5f; }
+.pw-req-check { width: 16px; height: 16px; display: grid; place-items: center; flex-shrink: 0; }
+.pw-req-check svg { color: #2b9a5f; }
+.pw-req-dot { width: 5px; height: 5px; border-radius: 50%; background: #c2ccda; }
 .pw-mismatch { font-size: 11px; color: #f25961; font-weight: 500; margin-top: 4px; }
 .login-success { display: flex; align-items: center; gap: 8px; background: #e7f7ed; color: #2b9a5f; font-size: 13px; font-weight: 500; padding: 10px 14px; border-radius: 8px; margin-bottom: 18px; }
 .login-success svg { flex-shrink: 0; }

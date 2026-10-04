@@ -5,14 +5,22 @@ import { toast } from '../ui/Toast';
 
 function passwordStrength(pw: string): { score: number; label: string; color: string } {
   let score = 0;
-  if (pw.length >= 6) score++;
-  if (pw.length >= 10) score++;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const labels = ['Quá yếu', 'Yếu', 'Trung bình', 'Khá tốt', 'Mạnh', 'Rất mạnh'];
   const colors = ['#f25961', '#f25961', '#f0a020', '#f0c020', '#39ac62', '#2b9a5f'];
   return { score, label: labels[score], color: colors[score] };
+}
+
+function passwordRequirements(pw: string): { label: string; met: boolean }[] {
+  return [
+    { label: 'Ít nhất 8 ký tự', met: pw.length >= 8 },
+    { label: 'Có chữ viết hoa', met: /[A-Z]/.test(pw) },
+    { label: 'Có ký tự đặc biệt', met: /[^A-Za-z0-9]/.test(pw) },
+  ];
 }
 
 export function LoginPage() {
@@ -28,6 +36,7 @@ export function LoginPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const pwStrength = passwordStrength(password);
+  const pwReqs = passwordRequirements(password);
 
   const switchMode = (newMode: 'login' | 'signup') => {
     setMode(newMode);
@@ -42,7 +51,9 @@ export function LoginPage() {
     if (displayName.trim().length < 2) return 'Tên hiển thị phải có ít nhất 2 ký tự';
     if (!email.trim()) return 'Vui lòng nhập email';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Email không hợp lệ';
-    if (password.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
+    if (!/[A-Z]/.test(password)) return 'Mật khẩu phải có ít nhất 1 chữ viết hoa';
+    if (!/[^A-Za-z0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt';
     if (password !== confirmPassword) return 'Mật khẩu xác nhận không khớp';
     return null;
   };
@@ -160,12 +171,22 @@ export function LoginPage() {
               </button>
             </div>
             {mode === 'signup' && password.length > 0 && (
-              <div className="pw-strength">
-                <div className="pw-strength-bar">
-                  <div className="pw-strength-fill" style={{ width: `${(pwStrength.score / 5) * 100}%`, background: pwStrength.color }} />
+              <>
+                <div className="pw-strength">
+                  <div className="pw-strength-bar">
+                    <div className="pw-strength-fill" style={{ width: `${(pwStrength.score / 5) * 100}%`, background: pwStrength.color }} />
+                  </div>
+                  <span className="pw-strength-label" style={{ color: pwStrength.color }}>{pwStrength.label}</span>
                 </div>
-                <span className="pw-strength-label" style={{ color: pwStrength.color }}>{pwStrength.label}</span>
-              </div>
+                <ul className="pw-reqs">
+                  {pwReqs.map((req) => (
+                    <li key={req.label} className={req.met ? 'met' : ''}>
+                      <span className="pw-req-check">{req.met ? <Check size={12} /> : <span className="pw-req-dot" />}</span>
+                      {req.label}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
           {mode === 'signup' && (
