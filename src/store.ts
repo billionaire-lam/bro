@@ -211,7 +211,7 @@ async function dbSyncBlockOrder(lessonId: string, blocks: Block[]) {
 
 // ===== Hook =====
 
-export function useStore() {
+export function useStore(enableFetch = true) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [appData, setAppData] = useState<AppData>(loadAppData);
   const [loading, setLoading] = useState(true);
@@ -225,12 +225,16 @@ export function useStore() {
 
   useEffect(() => {
     if (initialized.current) return;
+    if (!enableFetch) {
+      setLoading(false);
+      return;
+    }
     initialized.current = true;
     refresh();
     const listener = () => setAppData(loadAppData());
     listeners.push(listener);
     return () => { listeners = listeners.filter((l) => l !== listener); };
-  }, [refresh]);
+  }, [refresh, enableFetch]);
 
   const updateAppData = useCallback((updater: (prev: AppData) => AppData) => {
     saveAppData(updater(loadAppData()));

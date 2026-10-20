@@ -85,7 +85,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [route, setRoute] = useState<Route>({ name: 'overview' });
   const [searchQuery, setSearchQuery] = useState('');
-  const { notifications } = useStore();
+  const { notifications } = useStore(!!user && !!profile);
   const notifCount = notifications.filter((n) => n.status === 'published').length;
 
   const role: Role = profile?.role || 'student';
