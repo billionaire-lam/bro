@@ -243,9 +243,9 @@ export function LoginPage() {
 
         <div className="login-role-hint">
           {mode === 'login' ? (
-            <p>Tài khoản mới đăng ký mặc định là <strong>Học sinh</strong>. Quyền <strong>Giảng viên</strong> do quản trị cấp.</p>
+            <p>Tài khoản mới đăng ký mặc định là <strong>Học sinh</strong>. Quyền <strong>Quản trị viên</strong> do hệ thống cấp.</p>
           ) : (
-            <p>Bạn đăng ký với tư cách <strong>Học sinh</strong>. Muốn trở thành Giảng viên, vui lòng liên hệ quản trị.</p>
+            <p>Bạn đăng ký với tư cách <strong>Học sinh</strong>. Quyền quản trị viên được hệ thống tự động cấp cho tài khoản chủ sở hữu.</p>
           )}
         </div>
       </div>

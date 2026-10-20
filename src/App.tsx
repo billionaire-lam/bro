@@ -38,7 +38,7 @@ import { ActivityLogPage } from './pages/ActivityLogPage';
 import { LoginPage } from './pages/LoginPage';
 import { ToastHost } from './ui/Toast';
 
-type Role = 'student' | 'lecturer';
+type Role = 'student' | 'lecturer' | 'admin';
 
 interface NavItem {
   label: string;
@@ -47,18 +47,20 @@ interface NavItem {
   roles: Role[];
 }
 
+const ADMIN_ONLY: Role[] = ['lecturer', 'admin'];
+
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Tổng quan', icon: Home, route: { name: 'overview' }, roles: ['student', 'lecturer'] },
-  { label: 'Môn học', icon: BookOpen, route: { name: 'subjects' }, roles: ['student', 'lecturer'] },
-  { label: 'Bài giảng', icon: Presentation, route: { name: 'lessons' }, roles: ['student', 'lecturer'] },
-  { label: 'Quiz', icon: ClipboardCheck, route: { name: 'quiz' }, roles: ['student', 'lecturer'] },
-  { label: 'Template thuyết trình', icon: FileText, route: { name: 'templates' }, roles: ['lecturer'] },
-  { label: 'Học sinh', icon: Users, route: { name: 'students' }, roles: ['lecturer'] },
-  { label: 'Tiến độ học tập', icon: LineChart, route: { name: 'progress' }, roles: ['student', 'lecturer'] },
-  { label: 'Thông báo', icon: Bell, route: { name: 'notifications' }, roles: ['student', 'lecturer'] },
-  { label: 'AI Tools', icon: Sparkles, route: { name: 'ai-tools' }, roles: ['lecturer'] },
-  { label: 'Cài đặt', icon: Settings, route: { name: 'settings' }, roles: ['student', 'lecturer'] },
-  { label: 'Nhật ký hoạt động', icon: Activity, route: { name: 'activity-log' }, roles: ['lecturer'] },
+  { label: 'Tổng quan', icon: Home, route: { name: 'overview' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Môn học', icon: BookOpen, route: { name: 'subjects' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Bài giảng', icon: Presentation, route: { name: 'lessons' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Quiz', icon: ClipboardCheck, route: { name: 'quiz' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Template thuyết trình', icon: FileText, route: { name: 'templates' }, roles: ADMIN_ONLY },
+  { label: 'Học sinh', icon: Users, route: { name: 'students' }, roles: ADMIN_ONLY },
+  { label: 'Tiến độ học tập', icon: LineChart, route: { name: 'progress' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Thông báo', icon: Bell, route: { name: 'notifications' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'AI Tools', icon: Sparkles, route: { name: 'ai-tools' }, roles: ADMIN_ONLY },
+  { label: 'Cài đặt', icon: Settings, route: { name: 'settings' }, roles: ['student', 'lecturer', 'admin'] },
+  { label: 'Nhật ký hoạt động', icon: Activity, route: { name: 'activity-log' }, roles: ADMIN_ONLY },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -78,7 +80,11 @@ const PAGE_TITLES: Record<string, string> = {
   'activity-log': 'Nhật ký hoạt động',
 };
 
-const LECTURER_ONLY = new Set(['templates', 'students', 'ai-tools', 'activity-log', 'lesson-editor', 'lesson-edit']);
+const ADMIN_ONLY_ROUTES = new Set(['templates', 'students', 'ai-tools', 'activity-log', 'lesson-editor', 'lesson-edit']);
+
+function isAdminRole(role: Role): boolean {
+  return role === 'admin' || role === 'lecturer';
+}
 
 function App() {
   const { user, profile, loading, signOut } = useAuth();
@@ -108,7 +114,7 @@ function App() {
   }
 
   const navigate = (r: Route) => {
-    if (role === 'student' && LECTURER_ONLY.has(r.name)) {
+    if (role === 'student' && ADMIN_ONLY_ROUTES.has(r.name)) {
       setRoute({ name: 'overview' });
       return;
     }
@@ -128,29 +134,30 @@ function App() {
   const initials = (profile.display_name || profile.email || '?').slice(0, 2).toUpperCase();
 
   const renderPage = () => {
+    const canManage = isAdminRole(role);
     switch (route.name) {
       case 'overview':
         return <OverviewPage onNavigate={navigateByName} searchQuery={searchQuery} />;
       case 'subjects':
-        return role === 'lecturer' ? (
+        return canManage ? (
           <SubjectsPage onOpenLesson={(sid, cid, lid) => navigate({ name: 'lesson-editor', subjectId: sid, chapterId: cid, lessonId: lid })} />
         ) : (
           <SubjectsPage onOpenLesson={(sid, cid, lid) => navigate({ name: 'lesson-view', subjectId: sid, chapterId: cid, lessonId: lid })} />
         );
       case 'lesson-editor':
-        return role === 'lecturer' ? (
+        return canManage ? (
           <LessonEditorPage route={route} onBack={() => navigate({ name: 'subjects' })} />
         ) : (
           <OverviewPage onNavigate={navigateByName} searchQuery="" />
         );
       case 'lessons':
-        return role === 'lecturer' ? (
+        return canManage ? (
           <LessonsPage onEditLesson={(sid, cid, lid) => navigate({ name: 'lesson-edit', subjectId: sid, chapterId: cid, lessonId: lid })} />
         ) : (
           <LessonsPage onEditLesson={(sid, cid, lid) => navigate({ name: 'lesson-view', subjectId: sid, chapterId: cid, lessonId: lid })} />
         );
       case 'lesson-edit':
-        return role === 'lecturer' ? (
+        return canManage ? (
           <LessonEditPage route={route} onBack={() => navigate({ name: 'lessons' })} />
         ) : (
           <OverviewPage onNavigate={navigateByName} searchQuery="" />
@@ -160,19 +167,19 @@ function App() {
       case 'quiz':
         return <QuizPage />;
       case 'templates':
-        return role === 'lecturer' ? <TemplatesPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
+        return canManage ? <TemplatesPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
       case 'students':
-        return role === 'lecturer' ? <StudentsPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
+        return canManage ? <StudentsPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
       case 'progress':
         return <ProgressPage />;
       case 'notifications':
         return <NotificationsPage />;
       case 'ai-tools':
-        return role === 'lecturer' ? <AIToolsPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
+        return canManage ? <AIToolsPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
       case 'settings':
         return <SettingsPage />;
       case 'activity-log':
-        return role === 'lecturer' ? <ActivityLogPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
+        return canManage ? <ActivityLogPage /> : <OverviewPage onNavigate={navigateByName} searchQuery="" />;
       default:
         return <OverviewPage onNavigate={navigateByName} searchQuery={searchQuery} />;
     }
@@ -190,7 +197,7 @@ function App() {
         <div className="brand">
           <div className="brand-mark"><span /></div>
           <span>StudyHub</span>
-          <b>{role === 'lecturer' ? 'Giảng viên' : 'Học sinh'}</b>
+          <b>{isAdminRole(role) ? 'Quản trị viên' : 'Học sinh'}</b>
           <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu"><X size={19} /></button>
         </div>
         <nav className="nav-list">
@@ -211,7 +218,7 @@ function App() {
         <div className="sidebar-bottom">
           <button className="profile-card" onClick={() => navigate({ name: 'settings' })}>
             <div className="profile-avatar">{initials}</div>
-            <div><strong>{profile.display_name || profile.email}</strong><span>{role === 'lecturer' ? 'Giảng viên' : 'Học sinh'}</span></div>
+            <div><strong>{profile.display_name || profile.email}</strong><span>{isAdminRole(role) ? 'Quản trị viên' : 'Học sinh'}</span></div>
             <ChevronDown size={15} />
           </button>
           <button className="sign-out-btn" onClick={handleSignOut} aria-label="Đăng xuất">

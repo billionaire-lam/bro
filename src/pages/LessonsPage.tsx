@@ -1,6 +1,7 @@
-import { Edit2, FileEdit, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, Clock, Edit2, Eye, FileEdit, Play, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { Lesson } from '../types';
+import type { Lesson, SubjectColor } from '../types';
+import { useAuth } from '../auth';
 import { useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -14,13 +15,25 @@ interface Props {
 interface FlatLesson extends Lesson {
   subjectId: string;
   subjectName: string;
+  subjectColor: SubjectColor;
   chapterId: string;
   chapterName: string;
 }
 
+const SUBJECT_ICONS: Record<string, { bg: string; fg: string }> = {
+  violet: { bg: '#f3f0ff', fg: '#7c3aed' },
+  green: { bg: '#ecfdf5', fg: '#059669' },
+  blue: { bg: '#eff6ff', fg: '#2563eb' },
+  orange: { bg: '#fff7ed', fg: '#ea580c' },
+  pink: { bg: '#fdf2f8', fg: '#db2777' },
+};
+
 export function LessonsPage({ onEditLesson }: Props) {
   const store = useStore();
   const { data, loading } = store;
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'lecturer';
+
   const [search, setSearch] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [chapterFilter, setChapterFilter] = useState('');
@@ -39,7 +52,7 @@ export function LessonsPage({ onEditLesson }: Props) {
     data.forEach((s) => {
       s.chapters.forEach((c) => {
         c.lessons.forEach((l) => {
-          result.push({ ...l, subjectId: s.id, subjectName: s.name, chapterId: c.id, chapterName: c.name });
+          result.push({ ...l, subjectId: s.id, subjectName: s.name, subjectColor: s.color, chapterId: c.id, chapterName: c.name });
         });
       });
     });
@@ -53,13 +66,14 @@ export function LessonsPage({ onEditLesson }: Props) {
 
   const filtered = useMemo(() => {
     return flatLessons.filter((l) => {
+      if (!isAdmin && l.status !== 'published') return false;
       if (search && !l.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (subjectFilter && l.subjectId !== subjectFilter) return false;
       if (chapterFilter && l.chapterId !== chapterFilter) return false;
       if (statusFilter && l.status !== statusFilter) return false;
       return true;
     });
-  }, [flatLessons, search, subjectFilter, chapterFilter, statusFilter]);
+  }, [flatLessons, search, subjectFilter, chapterFilter, statusFilter, isAdmin]);
 
   const openAdd = () => {
     setEditing(null);
@@ -127,6 +141,50 @@ export function LessonsPage({ onEditLesson }: Props) {
     return <div className="page-container"><div className="empty-hint">Đang tải...</div></div>;
   }
 
+  // Student view: beautiful lesson cards
+  if (!isAdmin) {
+    return (
+      <div className="page-container">
+        <FilterBar>
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm bài giảng..." />
+          <Select value={subjectFilter} onChange={(v) => { setSubjectFilter(v); setChapterFilter(''); }} options={data.map((s) => ({ value: s.id, label: s.name }))} allLabel="Tất cả môn học" />
+          <Select value={chapterFilter} onChange={setChapterFilter} options={(data.find((s) => s.id === subjectFilter)?.chapters || []).map((c) => ({ value: c.id, label: c.name }))} allLabel="Tất cả chương" />
+        </FilterBar>
+        {filtered.length === 0 ? (
+          <EmptyState message="Chưa có bài giảng nào được xuất bản. Vui lòng quay lại sau!" />
+        ) : (
+          <div className="lesson-card-grid">
+            {filtered.map((lesson) => {
+              const colors = SUBJECT_ICONS[lesson.subjectColor] || SUBJECT_ICONS.blue;
+              return (
+                <div key={lesson.id} className="lesson-card" onClick={() => onEditLesson(lesson.subjectId, lesson.chapterId, lesson.id)}>
+                  <div className="lesson-card-thumb" style={{ background: colors.bg }}>
+                    <BookOpen size={28} style={{ color: colors.fg }} />
+                  </div>
+                  <div className="lesson-card-body">
+                    <div className="lesson-card-tag" style={{ background: colors.bg, color: colors.fg }}>
+                      {lesson.subjectName}
+                    </div>
+                    <h3 className="lesson-card-title">{lesson.name}</h3>
+                    {lesson.description && <p className="lesson-card-desc">{lesson.description}</p>}
+                    <div className="lesson-card-meta">
+                      <span><Clock size={13} /> {lesson.duration}</span>
+                      <span>{lesson.chapterName}</span>
+                    </div>
+                    <button className="lesson-card-btn" onClick={(e) => { e.stopPropagation(); onEditLesson(lesson.subjectId, lesson.chapterId, lesson.id); }}>
+                      <Play size={15} /> Học ngay
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Admin view: data table
   return (
     <div className="page-container">
       <div className="page-toolbar">

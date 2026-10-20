@@ -1,6 +1,7 @@
 import { ArrowLeft, Clock, FileText } from 'lucide-react';
 import type { Route } from '../types';
 import { findLesson, useStore } from '../store';
+import { useAuth } from '../auth';
 import { Button } from '../ui/Button';
 import { BlockPreview } from '../blocks/BlockPreview';
 
@@ -11,12 +12,14 @@ interface Props {
 
 export function LessonViewPage({ route, onBack }: Props) {
   const store = useStore();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'lecturer';
   const lesson = findLesson(store.data, route.subjectId, route.chapterId, route.lessonId);
 
-  if (!lesson) {
+  if (!lesson || (!isAdmin && lesson.status !== 'published')) {
     return (
       <div className="page-container">
-        <div className="empty-hint">Không tìm thấy bài giảng.</div>
+        <div className="empty-hint">Bài giảng không tồn tại hoặc chưa được xuất bản.</div>
         <Button variant="outline" onClick={onBack}><ArrowLeft size={15} /> Quay lại</Button>
       </div>
     );

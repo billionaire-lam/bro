@@ -172,7 +172,7 @@ export function SettingsPage() {
           <div className="form-group">
             <label className="form-label">Vai trò</label>
             <div className="role-display">
-              <span className={`role-badge ${profile?.role}`}>{profile?.role === 'lecturer' ? 'Giảng viên' : 'Học sinh'}</span>
+              <span className={`role-badge ${profile?.role}`}>{profile?.role === 'admin' || profile?.role === 'lecturer' ? 'Quản trị viên' : 'Học sinh'}</span>
             </div>
           </div>
           <div className="settings-save-bar">

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { countAllLessons, useStore } from '../store';
+import { useAuth } from '../auth';
 
 interface StatConfig {
   label: string;
@@ -47,6 +48,8 @@ interface OverviewProps {
 
 export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
   const { data, quizzes, students, activityLog } = useStore();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'lecturer';
   const [chartPeriod, setChartPeriod] = useState('7');
   const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
 
@@ -55,11 +58,14 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
   const totalQuizzes = quizzes.length;
   const activeStudents = students.filter((s) => s.status === 'active').length;
 
-  const stats = [
+  const stats = isAdmin ? [
     { ...STAT_CONFIGS[0], value: totalStudents.toLocaleString(), detail: `${activeStudents} đang hoạt động` },
     { ...STAT_CONFIGS[1], value: String(totalLessons), detail: `${data.length} môn học` },
     { ...STAT_CONFIGS[2], value: String(totalQuizzes), detail: `${quizzes.filter((q) => q.status === 'published').length} đã xuất bản` },
     { ...STAT_CONFIGS[3], value: String(activeStudents), detail: `${Math.round((activeStudents / Math.max(totalStudents, 1)) * 100)}% tổng số học sinh` },
+  ] : [
+    { ...STAT_CONFIGS[1], value: String(totalLessons), detail: `${data.length} môn học` },
+    { ...STAT_CONFIGS[2], value: String(totalQuizzes), detail: `${quizzes.filter((q) => q.status === 'published').length} đã xuất bản` },
   ];
 
   const recentContent = useMemo(() => {
@@ -67,15 +73,17 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
     data.forEach((s) => {
       s.chapters.forEach((c) => {
         c.lessons.forEach((l) => {
+          if (!isAdmin && l.status !== 'published') return;
           items.push({ type: 'Bài giảng', title: l.name, subject: `${s.name} - ${c.name}`, status: l.status === 'published' ? 'Đã xuất bản' : 'Bản nháp', date: '18/05/2024', tone: l.status === 'published' ? 'green' : 'yellow' });
         });
       });
     });
     quizzes.forEach((q) => {
+      if (!isAdmin && q.status !== 'published') return;
       items.push({ type: 'Quiz', title: q.name, subject: q.subjectId, status: q.status === 'published' ? 'Đã xuất bản' : 'Bản nháp', date: '16/05/2024', tone: q.status === 'published' ? 'green' : 'yellow' });
     });
     return items.slice(0, 6);
-  }, [data, quizzes]);
+  }, [data, quizzes, isAdmin]);
 
   const recentActivities = useMemo(() => {
     return activityLog.slice(0, 5).map((a) => {
@@ -109,6 +117,7 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
       </section>
       <section className="dashboard-grid">
         <div className="left-column">
+          {isAdmin && (
           <article className="panel chart-panel">
             <div className="panel-heading">
               <div><h2>Thống kê học sinh <span>({chartPeriod} ngày qua)</span></h2></div>
@@ -141,6 +150,7 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
               </div>
             </div>
           </article>
+          )}
           <article className="panel content-panel">
             <div className="panel-heading"><h2>Nội dung mới nhất</h2><button className="outline-button" onClick={() => onNavigate('lessons')}>Xem tất cả</button></div>
             <div className="content-table">
@@ -158,6 +168,7 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
           </article>
         </div>
         <div className="right-column">
+          {isAdmin && (
           <article className="panel activity-panel">
             <div className="panel-heading"><h2>Hoạt động gần đây</h2><button className="outline-button" onClick={() => onNavigate('activity-log')}>Xem tất cả</button></div>
             <div className="activity-list">
@@ -170,6 +181,7 @@ export function OverviewPage({ onNavigate, searchQuery }: OverviewProps) {
               ))}
             </div>
           </article>
+          )}
           <article className="panel progress-panel">
             <div className="panel-heading"><h2>Tiến độ học tập trung bình</h2><button className="outline-button" onClick={() => onNavigate('progress')}>Xem chi tiết</button></div>
             <div className="progress-list">

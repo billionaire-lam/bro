@@ -18,6 +18,7 @@ import { findChapter, useStore } from '../store';
 import { AddButton, Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { toast } from '../ui/Toast';
+import { useAuth } from '../auth';
 
 const COLOR_OPTIONS: SubjectColor[] = ['violet', 'green', 'blue', 'orange', 'pink'];
 
@@ -28,6 +29,8 @@ interface SubjectsPageProps {
 export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
   const store = useStore();
   const { data, loading } = store;
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'lecturer';
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
@@ -169,9 +172,11 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
 
   return (
     <div className="page-container">
-      <div className="page-toolbar">
-        <AddButton onClick={() => openModal('subject')}>Thêm môn học</AddButton>
-      </div>
+      {isAdmin && (
+        <div className="page-toolbar">
+          <AddButton onClick={() => openModal('subject')}>Thêm môn học</AddButton>
+        </div>
+      )}
 
       <div className="subject-list">
         {data.map((subject) => {
@@ -199,18 +204,24 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                   <span>{subject.chapters.length} chương · {lessonCount} bài giảng</span>
                 </div>
                 <div className="card-actions">
-                  <button className="card-action-btn" onClick={() => openModal('subject', subject.id)}><Pencil size={14} /> Chỉnh sửa</button>
-                  <button className="card-action-btn danger" onClick={() => deleteSubject(subject.id)}><Trash2 size={14} /></button>
+                  {isAdmin && (
+                    <>
+                      <button className="card-action-btn" onClick={() => openModal('subject', subject.id)}><Pencil size={14} /> Chỉnh sửa</button>
+                      <button className="card-action-btn danger" onClick={() => deleteSubject(subject.id)}><Trash2 size={14} /></button>
+                    </>
+                  )}
                 </div>
               </div>
               {subject.description && <p className="subject-desc">{subject.description}</p>}
 
               {isExpanded && (
                 <div className="chapter-list">
-                  <div className="sub-toolbar">
-                    <span className="sub-toolbar-label">Chương</span>
-                    <AddButton onClick={() => openModal('chapter', null, subject.id)}>Thêm chương</AddButton>
-                  </div>
+                  {isAdmin && (
+                    <div className="sub-toolbar">
+                      <span className="sub-toolbar-label">Chương</span>
+                      <AddButton onClick={() => openModal('chapter', null, subject.id)}>Thêm chương</AddButton>
+                    </div>
+                  )}
                   {subject.chapters.map((chapter) => {
                     const isChExpanded = expandedChapter === chapter.id;
                     return (
@@ -238,23 +249,29 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                             {chapter.description && <span>{chapter.description}</span>}
                           </div>
                           <div className="card-actions">
-                            <button className="card-action-btn" onClick={() => openModal('chapter', chapter.id, subject.id)}><Pencil size={13} /> Chỉnh sửa</button>
-                            <button className="card-action-btn danger" onClick={() => deleteChapter(chapter.id)}><Trash2 size={13} /></button>
+                            {isAdmin && (
+                              <>
+                                <button className="card-action-btn" onClick={() => openModal('chapter', chapter.id, subject.id)}><Pencil size={13} /> Chỉnh sửa</button>
+                                <button className="card-action-btn danger" onClick={() => deleteChapter(chapter.id)}><Trash2 size={13} /></button>
+                              </>
+                            )}
                           </div>
                         </div>
 
                         {isChExpanded && (
                           <div className="lesson-list">
-                            <div className="sub-toolbar">
-                              <span className="sub-toolbar-label">Bài giảng</span>
-                              <AddButton onClick={() => openModal('lesson', null, subject.id, chapter.id)}>Thêm bài</AddButton>
-                            </div>
+                            {isAdmin && (
+                              <div className="sub-toolbar">
+                                <span className="sub-toolbar-label">Bài giảng</span>
+                                <AddButton onClick={() => openModal('lesson', null, subject.id, chapter.id)}>Thêm bài</AddButton>
+                              </div>
+                            )}
                             {chapter.lessons.map((lesson) => (
                               <div
                                 key={lesson.id}
-                                className={`lesson-item ${dragOverId === lesson.id ? 'drag-over' : ''}`}
-                                draggable
-                                onDragStart={() => { setDragType('lesson'); setDragId(lesson.id); setModalContextSubjectId(subject.id); setModalContextChapterId(chapter.id); }}
+                                className={`lesson-item ${dragOverId === lesson.id ? 'drag-over' : ''} ${!isAdmin && lesson.status !== 'published' ? 'lesson-locked' : ''}`}
+                                draggable={isAdmin}
+                                onDragStart={() => { if (!isAdmin) return; setDragType('lesson'); setDragId(lesson.id); setModalContextSubjectId(subject.id); setModalContextChapterId(chapter.id); }}
                                 onDragEnter={() => setDragOverId(lesson.id)}
                                 onDragEnd={() => {
                                   if (dragType === 'lesson' && dragId && dragId !== lesson.id) store.reorderLessons(subject.id, chapter.id, dragId, lesson.id);
@@ -263,18 +280,30 @@ export function SubjectsPage({ onOpenLesson }: SubjectsPageProps) {
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => { e.preventDefault(); if (dragType === 'lesson' && dragId && dragId !== lesson.id) store.reorderLessons(subject.id, chapter.id, dragId, lesson.id); setDragId(null); setDragType(null); setDragOverId(null); }}
                               >
-                                <div className="subject-grip"><GripVertical size={14} /></div>
+                                {isAdmin && <div className="subject-grip"><GripVertical size={14} /></div>}
                                 <FileText size={15} className="lesson-icon" />
                                 <div className="lesson-info">
                                   <strong>{lesson.name}</strong>
                                   <span><Clock size={11} /> {lesson.duration}</span>
                                 </div>
-                                <span className={`lesson-status ${lesson.status}`}>{lesson.status === 'draft' ? 'Bản nháp' : 'Đã xuất bản'}</span>
-                                <div className="card-actions">
-                                  <button className="card-action-btn" onClick={() => onOpenLesson(subject.id, chapter.id, lesson.id)}><Edit2 size={13} /> Soạn bài</button>
-                                  <button className="card-action-btn" onClick={() => openModal('lesson', lesson.id, subject.id, chapter.id)}><Pencil size={13} /></button>
-                                  <button className="card-action-btn danger" onClick={() => deleteLesson(lesson.id)}><Trash2 size={13} /></button>
-                                </div>
+                                {isAdmin ? (
+                                  <>
+                                    <span className={`lesson-status ${lesson.status}`}>{lesson.status === 'draft' ? 'Bản nháp' : 'Đã xuất bản'}</span>
+                                    <div className="card-actions">
+                                      <button className="card-action-btn" onClick={() => onOpenLesson(subject.id, chapter.id, lesson.id)}><Edit2 size={13} /> Soạn bài</button>
+                                      <button className="card-action-btn" onClick={() => openModal('lesson', lesson.id, subject.id, chapter.id)}><Pencil size={13} /></button>
+                                      <button className="card-action-btn danger" onClick={() => deleteLesson(lesson.id)}><Trash2 size={13} /></button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  lesson.status === 'published' ? (
+                                    <div className="card-actions">
+                                      <button className="card-action-btn primary" onClick={() => onOpenLesson(subject.id, chapter.id, lesson.id)}><BookOpen size={13} /> Học ngay</button>
+                                    </div>
+                                  ) : (
+                                    <span className="lesson-status draft">Sắp ra mắt</span>
+                                  )
+                                )}
                               </div>
                             ))}
                             {chapter.lessons.length === 0 && <p className="empty-hint">Chưa có bài giảng nào. Bấm "Thêm bài" để tạo.</p>}
